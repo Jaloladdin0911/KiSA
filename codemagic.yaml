@@ -34,9 +34,19 @@ workflows:
       - name: Imzolash sertifikat va profilini yaratish/olish
         script: |
           keychain initialize
+          # 1) Yangi RSA maxfiy kalit yaratamiz
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          # 2) Shu kalit bilan yangi Apple Distribution sertifikat yaratamiz
+          app-store-connect create-certificate \
+            --type IOS_DISTRIBUTION \
+            --certificate-key=@file:/tmp/cert_key.pem \
+            --save
+          # 3) Shu kalit bilan App Store provisioning profilini yaratamiz/olamiz
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
+            --certificate-key=@file:/tmp/cert_key.pem \
             --create
+          # 4) Sertifikatni keychain'ga qo'shib, profilni Xcode loyihasiga qo'llaymiz
           keychain add-certificates
           xcode-project use-profiles
 
