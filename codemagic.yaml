@@ -19,9 +19,6 @@ workflows:
       app_store_connect: "Codemagic Key"
 
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.kisa.finance
       vars:
         # App Store Connect dagi ilovaning Apple ID raqami
         APP_STORE_APPLE_ID: 6780032147
@@ -34,12 +31,18 @@ workflows:
       - name: Flutter paketlarini olish
         script: flutter pub get
 
+      - name: Imzolash sertifikat va profilini yaratish/olish
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
+          xcode-project use-profiles
+
       - name: CocoaPods o'rnatish
         script: |
           find . -name "Podfile" -execdir pod install \;
-
-      - name: Kod imzolashni sozlash
-        script: xcode-project use-profiles
 
       - name: IPA build (avtomatik build raqami)
         script: |
