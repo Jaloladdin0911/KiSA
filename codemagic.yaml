@@ -14,6 +14,15 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
 
+    # main branchга har push qilinganda avtomatik build (webhook orqali)
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+      cancel_previous_builds: true
+
     integrations:
       # Codemagic UI dagi App Store Connect API key nomi (aynan mos bo'lishi shart)
       app_store_connect: "Codemagic Key"
