@@ -1,0 +1,67 @@
+# KiSA — Codemagic CI/CD
+# iOS ilovani avtomatik build qilib App Store Connect / TestFlight ga yuboradi.
+# Mac kerak emas — Codemagic macOS serverlarida build qiladi.
+#
+# OLDINDAN KERAK (DEPLOYMENT.md ga qarang):
+#   1. Apple Developer Program a'zoligi ($99/yil)
+#   2. App Store Connect da ilova yaratilgan (Bundle ID: com.kisa.finance)
+#   3. App Store Connect API key Codemagic UI ga "KisaAscApiKey" nomi bilan ulangan
+#   4. Quyidagi APP_STORE_APPLE_ID raqamini o'z ilovangiznikiga almashtiring
+
+workflows:
+  ios-testflight:
+    name: KiSA iOS — TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    integrations:
+      # Codemagic UI > Teams > Integrations da yaratilgan App Store Connect API key nomi
+      app_store_connect: KisaAscApiKey
+
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.kisa.finance
+      vars:
+        # App Store Connect dagi ilovaning Apple ID raqami (App Information sahifasida)
+        APP_STORE_APPLE_ID: 0000000000
+        BUNDLE_ID: "com.kisa.finance"
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+
+    scripts:
+      - name: Flutter paketlarini olish
+        script: flutter pub get
+
+      - name: CocoaPods o'rnatish
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
+      - name: Kod imzolashni sozlash
+        script: xcode-project use-profiles
+
+      - name: IPA build (avtomatik build raqami)
+        script: |
+          BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID") + 1))
+          flutter build ipa --release \
+            --build-number=$BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      email:
+        recipients:
+          - jalol0911j@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # TestFlight ichki testerlarga avtomatik tarqatish
+        submit_to_testflight: true
+        # Agar avtomatik tarqatishni xohlamasangiz, yuqoridagi qatorni false qiling
