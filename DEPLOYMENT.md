@@ -90,6 +90,24 @@ Tayyor! Endi har push'da yangi build avtomatik TestFlight'ga chiqadi.
 
 ---
 
+## Yangilanish berish (har safargi jarayon)
+
+Birinchi sozlash tugagach, yangilanish berish juda oddiy:
+
+1. Kodga o'zgartirish kiriting.
+2. Commit qilib `main` branchга push qiling (GitHub Desktop yoki `git push`).
+3. Codemagic **avtomatik** build qiladi (push trigger yoqilgan) va TestFlight'ga yuklaydi.
+   - Build raqami avtomatik +1 oshadi.
+   - Export compliance avtomatik (Info.plist'da sozlangan).
+4. ~10–15 daqiqada iPhone'dagi **TestFlight** ilovasida yangi build paydo bo'ladi → **Update**.
+
+**Versiya raqamini o'zgartirish** (masalan 2.0.0 → 2.1.0): `pubspec.yaml` dagi
+`version: 2.0.0+1` ni tahrirlang (masalan `2.1.0+1`). Build raqami baribir avtomatik oshadi.
+
+> Codemagic bepul rejasi oyiga ~500 daqiqa beradi; har iOS build ~6–9 daqiqa.
+> Agar har push'da build qilishni xohlamasangiz, `codemagic.yaml` dagi `triggering`
+> blokini o'chiring va qo'lda "Start new build" bosing.
+
 ## Eslatmalar
 
 - **Bundle ID** hozir `com.kisa.finance`. Agar boshqasini xohlasangiz, aytishingiz bilan
