@@ -23,8 +23,8 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.kisa.finance
       vars:
-        # App Store Connect dagi ilovaning Apple ID raqami (App Information sahifasida)
-        APP_STORE_APPLE_ID: 0000000000
+        # App Store Connect dagi ilovaning Apple ID raqami
+        APP_STORE_APPLE_ID: 6780032147
         BUNDLE_ID: "com.kisa.finance"
       flutter: stable
       xcode: latest
