@@ -75,6 +75,8 @@ workflows:
           failure: true
       app_store_connect:
         auth: integration
-        # TestFlight ichki testerlarga avtomatik tarqatish
-        submit_to_testflight: true
-        # Agar avtomatik tarqatishni xohlamasangiz, yuqoridagi qatorni false qiling
+        # IPA App Store Connect'ga yuklanadi. Ichki (internal) TestFlight
+        # testerlari buildni avtomatik oladi — beta review kerak emas.
+        # Tashqi (external) test uchun submit_to_testflight: true qo'shing,
+        # lekin u Apple beta review va to'liq test ma'lumotlarini talab qiladi.
+        submit_to_testflight: false
