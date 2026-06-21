@@ -103,6 +103,24 @@ class SyncService {
     } catch (_) {}
   }
 
+  /// Foydalanuvchining barcha Firestore ma'lumotlarini o'chiradi
+  /// (akkaunt o'chirilganda). Auth user o'chirilishidan OLDIN chaqirilishi kerak,
+  /// chunki o'chirilgach Firestore qoidalari ruxsat bermaydi.
+  Future<void> deleteAllUserData(String userId) async {
+    if (!await isOnline) return;
+    final db = _firestore;
+    if (db == null) return;
+    try {
+      for (final coll in ['transactions', 'goals']) {
+        final snap =
+            await db.collection('users').doc(userId).collection(coll).get();
+        for (final doc in snap.docs) {
+          await doc.reference.delete();
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> deleteGoalFromFirebase(String userId, String goalId) async {
     if (!await isOnline) return;
     final db = _firestore;

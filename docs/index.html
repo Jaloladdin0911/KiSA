@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KiSA — Moliyaviy boshqaruv</title>
+  <style>
+    :root {
+      --brand: #099268;
+      --brand-deep: #0b7285;
+      --ink: #1b2440;
+      --muted: #6b7686;
+      --bg: #eff2f9;
+      --card: #ffffff;
+      --border: #e5e9f2;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.65;
+    }
+    .hero {
+      background: linear-gradient(135deg, #12b886, #0c8599);
+      color: #fff;
+      padding: 60px 20px 52px;
+      text-align: center;
+    }
+    .logo {
+      width: 86px; height: 86px;
+      border-radius: 24px;
+      background: rgba(255,255,255,.15);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: 800; letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .hero h1 { margin: 0; font-size: 30px; font-weight: 800; }
+    .hero p { margin: 8px 0 0; opacity: .92; font-size: 15px; }
+    .wrap { max-width: 700px; margin: -28px auto 60px; padding: 0 16px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 28px 26px;
+      box-shadow: 0 8px 30px rgba(27,42,74,.06);
+    }
+    h2 { font-size: 19px; margin: 26px 0 8px; color: var(--brand-deep); }
+    h2:first-of-type { margin-top: 4px; }
+    p, li { font-size: 14.5px; color: #34405a; }
+    a { color: var(--brand); }
+    .features { list-style: none; padding: 0; margin: 8px 0; }
+    .features li { padding: 8px 0 8px 28px; position: relative; }
+    .features li::before {
+      content: "✓"; position: absolute; left: 0; color: var(--brand);
+      font-weight: 800;
+    }
+    .btn {
+      display: inline-block; margin-top: 8px;
+      background: var(--brand); color: #fff; text-decoration: none;
+      padding: 12px 22px; border-radius: 12px; font-weight: 700; font-size: 14.5px;
+    }
+    footer { text-align: center; color: var(--muted); font-size: 12.5px; padding: 0 16px 40px; }
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="logo">KiSA</div>
+    <h1>KiSA</h1>
+    <p>Shaxsiy moliyaviy boshqaruv &middot; Personal finance manager</p>
+  </div>
+
+  <div class="wrap">
+    <div class="card">
+      <h2>Ilova haqida</h2>
+      <p>KiSA — kirim va xarajatlaringizni, naqd va kartadagi so'm hamda dollar
+      hamyonlaringizni bir joyda boshqaradigan sodda va qulay moliyaviy ilova.</p>
+      <ul class="features">
+        <li>Naqd/karta × so'm/dollar — 4 hamyon</li>
+        <li>Kirim, xarajat, o'tkazma va valyuta ayirboshlash</li>
+        <li>Statistika, grafiklar va moliyaviy maqsadlar</li>
+        <li>Markaziy bank dollar kursi</li>
+        <li>Internetsiz ham ishlaydi, qurilmalar orasida sinxron</li>
+      </ul>
+
+      <h2>Qo'llab-quvvatlash / Support</h2>
+      <p>Savol, taklif yoki muammo bo'lsa, biz bilan bog'laning:</p>
+      <p><a class="btn" href="mailto:jalol0911j@gmail.com">jalol0911j@gmail.com</a></p>
+      <p style="margin-top:18px;">For any questions or support, contact us at the
+      email above. We usually respond within a few days.</p>
+
+      <h2>Maxfiylik / Privacy</h2>
+      <p>Ma'lumotlaringiz qanday himoyalanishi haqida:
+      <a href="privacy.html">Maxfiylik siyosati / Privacy Policy</a></p>
+    </div>
+  </div>
+
+  <footer>
+    &copy; 2026 KiSA &middot; jalol0911j@gmail.com
+  </footer>
+</body>
+</html>

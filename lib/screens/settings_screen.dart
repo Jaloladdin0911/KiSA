@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_strings.dart';
 import '../services/app_provider.dart';
 import '../services/auth_service.dart';
@@ -125,6 +126,26 @@ class SettingsScreen extends StatelessWidget {
                         title: s('clear_all'),
                         subtitle: s('irreversible'),
                         onTap: () => _clearDialog(context, provider, s),
+                      ),
+                      if (auth.isLoggedIn) ...[
+                        const SizedBox(height: 10),
+                        _DangerTile(
+                          icon: Icons.person_remove_outlined,
+                          title: s('delete_account'),
+                          subtitle: s('delete_account_desc'),
+                          onTap: () =>
+                              _deleteAccountDialog(context, provider, s),
+                        ),
+                      ],
+
+                      GroupLabel(s('about_app')),
+                      _Tile(
+                        icon: Icons.privacy_tip_outlined,
+                        iconColor: AppColors.brand,
+                        title: s('privacy_policy'),
+                        subtitle: 'jaloladdin0911.github.io',
+                        onTap: () => _openUrl(
+                            'https://jaloladdin0911.github.io/KiSA/privacy.html'),
                       ),
 
                       const SizedBox(height: 20),
@@ -345,6 +366,55 @@ class SettingsScreen extends StatelessWidget {
             onPressed: () {
               provider.clearAllData();
               Navigator.pop(ctx);
+            },
+            child: Text(s('delete')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+  }
+
+  void _deleteAccountDialog(
+      BuildContext context, AppProvider provider, AppStrings s) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s('delete_account'),
+            style: const TextStyle(color: AppColors.expense)),
+        content: Text(s('delete_account_confirm'), style: ctx.t.bodyMedium),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s('cancel'),
+                style: TextStyle(color: ctx.c.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.expense,
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 20)),
+            onPressed: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final navigator = Navigator.of(context);
+              Navigator.pop(ctx);
+              try {
+                await provider.deleteAccount();
+                messenger.showSnackBar(
+                    SnackBar(content: Text(s('account_deleted'))));
+                navigator.pushNamedAndRemoveUntil('/auth', (r) => false);
+              } catch (e) {
+                final msg = e.toString().contains('reauth')
+                    ? s('reauth_needed')
+                    : e.toString();
+                messenger.showSnackBar(SnackBar(content: Text(msg)));
+              }
             },
             child: Text(s('delete')),
           ),
@@ -719,8 +789,12 @@ class _StatRow extends StatelessWidget {
 class _DangerTile extends StatelessWidget {
   final String title, subtitle;
   final VoidCallback onTap;
+  final IconData icon;
   const _DangerTile(
-      {required this.title, required this.subtitle, required this.onTap});
+      {required this.title,
+      required this.subtitle,
+      required this.onTap,
+      this.icon = Icons.delete_forever_outlined});
 
   @override
   Widget build(BuildContext context) {
@@ -739,10 +813,8 @@ class _DangerTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const IconBadge(
-                  icon: Icons.delete_forever_outlined,
-                  color: AppColors.expense,
-                  size: 40),
+              IconBadge(
+                  icon: icon, color: AppColors.expense, size: 40),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

@@ -332,6 +332,26 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Akkauntni va barcha ma'lumotlarni butunlay o'chiradi (App Store talabi).
+  /// Xato bo'lsa (masalan qayta kirish kerak) yuqoriga uzatiladi.
+  Future<void> deleteAccount() async {
+    final uid = userId;
+
+    // 1) Firestore ma'lumotlari (auth user o'chirilishidan oldin)
+    if (_isOnline && _auth.isLoggedIn) {
+      await _sync.deleteAllUserData(uid);
+    }
+
+    // 2) Auth akkauntni o'chir — muvaffaqiyatsiz bo'lsa to'xtaymiz
+    await _auth.deleteAccount();
+
+    // 3) Lokal ma'lumotlarni tozala
+    await _local.clearUserData(uid);
+    _transactions = [];
+    _goals = [];
+    notifyListeners();
+  }
+
   Future<void> manualSync() async {
     if (!_auth.isLoggedIn) return;
     await _syncWithFirebase();

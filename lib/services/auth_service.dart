@@ -52,6 +52,23 @@ class AuthService {
     await _auth?.signOut();
   }
 
+  /// Akkauntni butunlay o'chiradi (Apple App Store talabi 5.1.1(v)).
+  /// Sessiya eski bo'lsa Firebase qayta kirishni talab qiladi.
+  Future<void> deleteAccount() async {
+    final user = _auth?.currentUser;
+    if (user == null) throw 'Akkaunt topilmadi';
+    try {
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        throw 'reauth';
+      }
+      throw _authError(e.code);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_name');
+  }
+
   Future<void> resetPassword(String email) async {
     await _auth?.sendPasswordResetEmail(email: email);
   }

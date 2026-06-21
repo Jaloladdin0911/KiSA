@@ -2,7 +2,7 @@ name: kisa
 description: KiSA - Shaxsiy moliyaviy boshqaruv ilovasi (SQLite + Firebase)
 
 publish_to: 'none'
-version: 2.0.0+2
+version: 2.0.0+3
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -34,6 +34,9 @@ dependencies:
 
   # Valyuta kursi (Markaziy bank API)
   http: ^1.2.2
+
+  # Tashqi havolalarni ochish (maxfiylik siyosati)
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:
