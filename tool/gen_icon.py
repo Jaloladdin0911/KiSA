@@ -1,4 +1,4 @@
-"""KiSA ilova ikonkasini generatsiya qiladi — ko'k gradient + oq 'KiSA' matni.
+"""KiSA ilova ikonkasini generatsiya qiladi — teal-yashil gradient + oq 'KiSA' matni.
 Ilova ichidagi KisaLogo widgeti bilan bir xil ko'rinishda.
 """
 import os
@@ -10,9 +10,9 @@ FONT_DIR = os.path.join(ROOT, "assets", "fonts")
 SIZE = 1024
 
 # Brend gradient ranglari (app_theme.dart bilan mos)
-TOP_LEFT = (116, 143, 252)      # #748FFC
-BOTTOM_RIGHT = (54, 79, 199)    # #364FC7
-BRAND = (66, 99, 235)           # #4263EB
+TOP_LEFT = (11, 114, 133)       # #0B7285 (teal-ko'k)
+BOTTOM_RIGHT = (18, 184, 134)   # #12B886 (yashil)
+BRAND = (9, 146, 104)           # #099268
 
 
 def gradient(size, c1, c2):

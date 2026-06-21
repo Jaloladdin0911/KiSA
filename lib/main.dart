@@ -11,6 +11,7 @@ import 'screens/dashboard_screen.dart';
 import 'screens/statistics_screen.dart';
 import 'screens/goals_screen.dart';
 import 'screens/settings_screen.dart';
+import 'widgets/transaction_card.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +79,16 @@ class _MainNavigatorState extends State<MainNavigator> {
       value: AppTheme.overlayStyle(context.isDark),
       child: Scaffold(
         body: IndexedStack(index: _index, children: _screens),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () =>
+              showAddActionSheet(context, context.read<AppProvider>()),
+          backgroundColor: AppColors.brand,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          shape: const CircleBorder(),
+          child: const Icon(Icons.add_rounded, size: 30),
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
         bottomNavigationBar: _KisaNavBar(
           index: _index,
           onTap: (i) => setState(() => _index = i),

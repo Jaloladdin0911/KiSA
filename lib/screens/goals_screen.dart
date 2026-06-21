@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/goal_model.dart';
 import '../services/app_provider.dart';
@@ -155,9 +154,7 @@ class GoalsScreen extends StatelessWidget {
                     controller: amountCtrl,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    ],
+                    inputFormatters: Money.amountFormatters,
                     decoration: InputDecoration(
                       labelText: s('goal_amount'),
                       suffixText: provider.currency,
@@ -198,7 +195,7 @@ class GoalsScreen extends StatelessWidget {
                   const SizedBox(height: 22),
                   ElevatedButton(
                     onPressed: () {
-                      final amount = double.tryParse(amountCtrl.text);
+                      final amount = Money.parse(amountCtrl.text);
                       if (titleCtrl.text.trim().isEmpty ||
                           amount == null ||
                           amount <= 0) {
@@ -250,9 +247,7 @@ class GoalsScreen extends StatelessWidget {
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-          ],
+          inputFormatters: Money.amountFormatters,
           autofocus: true,
           decoration: InputDecoration(
             labelText: s('amount'),
@@ -270,7 +265,7 @@ class GoalsScreen extends StatelessWidget {
                 minimumSize: const Size(0, 44),
                 padding: const EdgeInsets.symmetric(horizontal: 20)),
             onPressed: () {
-              final amount = double.tryParse(ctrl.text);
+              final amount = Money.parse(ctrl.text);
               if (amount == null || amount <= 0) return;
               provider.updateGoal(goal.copyWith(
                 currentAmount: (goal.currentAmount + amount)

@@ -42,8 +42,24 @@ class _AuthScreenState extends State<AuthScreen>
     super.dispose();
   }
 
+  bool _validEmail(String email) =>
+      RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+
+  void _goHome() {
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+  }
+
   Future<void> _login() async {
-    if (_loginEmailCtrl.text.isEmpty || _loginPassCtrl.text.isEmpty) return;
+    final s = context.read<AppProvider>().s;
+    if (_loginEmailCtrl.text.trim().isEmpty || _loginPassCtrl.text.isEmpty) {
+      setState(() => _error = s('fill_fields'));
+      return;
+    }
+    if (!_validEmail(_loginEmailCtrl.text.trim())) {
+      setState(() => _error = s('invalid_email'));
+      return;
+    }
     setState(() {
       _loading = true;
       _error = null;
@@ -54,6 +70,7 @@ class _AuthScreenState extends State<AuthScreen>
         password: _loginPassCtrl.text,
       );
       if (mounted) await context.read<AppProvider>().init();
+      _goHome();
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -62,9 +79,19 @@ class _AuthScreenState extends State<AuthScreen>
   }
 
   Future<void> _register() async {
-    if (_regNameCtrl.text.isEmpty ||
-        _regEmailCtrl.text.isEmpty ||
+    final s = context.read<AppProvider>().s;
+    if (_regNameCtrl.text.trim().isEmpty ||
+        _regEmailCtrl.text.trim().isEmpty ||
         _regPassCtrl.text.isEmpty) {
+      setState(() => _error = s('fill_fields'));
+      return;
+    }
+    if (!_validEmail(_regEmailCtrl.text.trim())) {
+      setState(() => _error = s('invalid_email'));
+      return;
+    }
+    if (_regPassCtrl.text.length < 6) {
+      setState(() => _error = s('password_short'));
       return;
     }
     setState(() {
@@ -78,6 +105,7 @@ class _AuthScreenState extends State<AuthScreen>
       );
       await _authService.updateDisplayName(_regNameCtrl.text.trim());
       if (mounted) await context.read<AppProvider>().init();
+      _goHome();
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -253,6 +281,7 @@ class _AuthScreenState extends State<AuthScreen>
               TextButton(
                 onPressed: () async {
                   await context.read<AppProvider>().init();
+                  _goHome();
                 },
                 child: Text(s('continue_offline'),
                     style: TextStyle(color: c.textSecondary, fontSize: 13.5)),

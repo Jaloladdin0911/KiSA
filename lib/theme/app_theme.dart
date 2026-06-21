@@ -10,17 +10,17 @@ import 'package:flutter/services.dart';
 class AppColors {
   AppColors._();
 
-  // Brend — KiSA indigo ko'ki
-  static const brand = Color(0xFF4263EB);
-  static const brandDark = Color(0xFF3B5BDB);
-  static const brandDeep = Color(0xFF364FC7);
-  static const brandSoft = Color(0xFF748FFC);
+  // Brend — KiSA teal-yashil (ilova ikonkasi bilan mos)
+  static const brand = Color(0xFF099268);
+  static const brandDark = Color(0xFF087F5B);
+  static const brandDeep = Color(0xFF0B7285);
+  static const brandSoft = Color(0xFF20C997);
 
   // Semantik
   static const income = Color(0xFF2F9E44);
   static const expense = Color(0xFFE8590C);
   static const warning = Color(0xFFF59F00);
-  static const info = Color(0xFF4263EB);
+  static const info = Color(0xFF099268);
   static const violet = Color(0xFF7048E8);
 
   // ── Light ──
@@ -42,8 +42,8 @@ class AppColors {
   static const dTextTertiary = Color(0xFF5C6A78);
 
   // Gradientlar
-  static const balanceGradientLight = [Color(0xFF5C7CFA), Color(0xFF4263EB)];
-  static const balanceGradientDark = [Color(0xFF3B5BDB), Color(0xFF1E2A6B)];
+  static const balanceGradientLight = [Color(0xFF12B886), Color(0xFF0C8599)];
+  static const balanceGradientDark = [Color(0xFF099268), Color(0xFF0B4F5E)];
 }
 
 /// Mavzuga (light/dark) bog'liq palitra — `context.c` orqali olinadi.

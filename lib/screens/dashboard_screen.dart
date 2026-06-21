@@ -4,6 +4,7 @@ import '../services/app_provider.dart';
 import '../services/ai_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../utils/wallets.dart';
 import '../widgets/ui_kit.dart';
 import '../widgets/transaction_card.dart';
 
@@ -18,7 +19,7 @@ class DashboardScreen extends StatelessWidget {
         final c = context.c;
         final recent = provider.transactions.take(6).toList();
         final insights = AiService.generate(
-          provider.transactions,
+          provider.transactionsInCurrency(provider.currency),
           provider.monthlyBudget,
           s,
           provider.currency,
@@ -40,9 +41,7 @@ class DashboardScreen extends StatelessWidget {
                         AppSpacing.screen, 24),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
-                        _BalanceCard(provider: provider),
-                        const SizedBox(height: 14),
-                        _QuickActions(provider: provider),
+                        _WalletsSection(provider: provider),
                         const SizedBox(height: 22),
                         if (provider.monthlyBudget > 0) ...[
                           _BudgetCard(provider: provider),
@@ -72,10 +71,14 @@ class DashboardScreen extends StatelessWidget {
                         else
                           ...recent.map((t) => TransactionCard(
                                 transaction: t,
-                                currency: provider.currency,
                                 strings: s,
                                 onDelete: () =>
                                     provider.deleteTransaction(t.id),
+                                onTap: t.isMovement
+                                    ? null
+                                    : () => showAddTransactionModal(
+                                        context, provider, t.type,
+                                        existing: t),
                               )),
                         const SizedBox(height: 12),
                       ]),
@@ -105,42 +108,90 @@ class _Header extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screen, 8, AppSpacing.screen, 16),
+          AppSpacing.screen, 8, AppSpacing.screen, 14),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppColors.brandSoft, AppColors.brandDeep],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: Text(initial,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Xush kelibsiz', style: context.t.bodySmall),
+                    const SizedBox(height: 1),
+                    Text(provider.userName,
+                        style: context.t.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              _SyncBadge(provider: provider),
+            ],
+          ),
+          if (provider.usdRate > 0) ...[
+            const SizedBox(height: 12),
+            _RateBar(provider: provider),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Valyuta kursi chizig'i (header tagida) ────────────────────────────────────
+
+class _RateBar extends StatelessWidget {
+  final AppProvider provider;
+  const _RateBar({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.brand.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.brand.withValues(alpha: 0.15)),
+      ),
       child: Row(
         children: [
-          Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.brandSoft, AppColors.brandDeep],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Text(initial,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800)),
+          const Icon(Icons.currency_exchange_rounded,
+              size: 16, color: AppColors.brand),
+          const SizedBox(width: 8),
+          Text('1 \$ = ',
+              style: TextStyle(fontSize: 13, color: c.textSecondary)),
+          Text(
+            Money.format(provider.usdRate, 'UZS'),
+            style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w800,
+                color: AppColors.brand),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Xush kelibsiz', style: context.t.bodySmall),
-                const SizedBox(height: 1),
-                Text(provider.userName,
-                    style: context.t.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          _SyncBadge(provider: provider),
+          const Spacer(),
+          Text(provider.s('cbu_rate'),
+              style: context.t.labelSmall?.copyWith(fontSize: 10.5)),
         ],
       ),
     );
@@ -190,37 +241,74 @@ class _SyncBadge extends StatelessWidget {
   }
 }
 
-// ── Balans kartasi ─────────────────────────────────────────────────────────────
+// ── Hamyonlar bo'limi ──────────────────────────────────────────────────────────
 
-class _BalanceCard extends StatelessWidget {
+class _WalletsSection extends StatelessWidget {
   final AppProvider provider;
-  const _BalanceCard({required this.provider});
+  const _WalletsSection({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _WalletCard(
+          provider: provider,
+          currency: Wallets.uzs,
+          title: "So'm",
+          gradient: context.c.balanceGradient,
+        ),
+        const SizedBox(height: 12),
+        _WalletCard(
+          provider: provider,
+          currency: Wallets.usd,
+          title: 'Dollar',
+          gradient: const [Color(0xFF0B7285), Color(0xFF0B4F5E)],
+        ),
+      ],
+    );
+  }
+}
+
+class _WalletCard extends StatelessWidget {
+  final AppProvider provider;
+  final String currency;
+  final String title;
+  final List<Color> gradient;
+
+  const _WalletCard({
+    required this.provider,
+    required this.currency,
+    required this.title,
+    required this.gradient,
+  });
 
   @override
   Widget build(BuildContext context) {
     final s = provider.s;
-    final grad = context.c.balanceGradient;
+    final total = provider.currencyBalance(currency);
+    final cash = provider.balanceOf(Wallets.cash, currency);
+    final card = provider.balanceOf(Wallets.card, currency);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: grad,
+          colors: gradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        boxShadow: AppShadows.brand(grad.first),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.brand(gradient.first),
       ),
       child: Stack(
         children: [
           Positioned(
-            right: -20,
-            top: -30,
+            right: -18,
+            top: -26,
             child: Container(
-              width: 130,
-              height: 130,
+              width: 96,
+              height: 96,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white.withValues(alpha: 0.06),
@@ -232,52 +320,50 @@ class _BalanceCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.account_balance_wallet_outlined,
-                      size: 16, color: Colors.white.withValues(alpha: 0.85)),
+                  Icon(Wallets.currencyIcon(currency),
+                      size: 15, color: Colors.white.withValues(alpha: 0.85)),
                   const SizedBox(width: 7),
-                  Text(s('total_balance'),
+                  Text(title,
                       style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500)),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      Money.format(total, currency),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  Money.format(provider.balance, provider.currency),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5),
-                ),
-              ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
-                    child: _MiniStat(
-                      label: s('income'),
-                      value: Money.format(
-                          provider.thisMonthIncome, provider.currency),
-                      icon: Icons.arrow_downward_rounded,
+                    child: _WalletMini(
+                      label: s('wallet_cash'),
+                      value: Money.format(cash, currency),
+                      icon: Wallets.placeIcon(Wallets.cash),
                     ),
                   ),
+                  const SizedBox(width: 14),
                   Container(
                     width: 1,
-                    height: 36,
-                    color: Colors.white.withValues(alpha: 0.18),
+                    height: 26,
+                    color: Colors.white.withValues(alpha: 0.16),
                   ),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: _MiniStat(
-                      label: s('expense'),
-                      value: Money.format(
-                          provider.thisMonthExpense, provider.currency),
-                      icon: Icons.arrow_upward_rounded,
-                      alignEnd: true,
+                    child: _WalletMini(
+                      label: s('wallet_card'),
+                      value: Money.format(card, currency),
+                      icon: Wallets.placeIcon(Wallets.card),
                     ),
                   ),
                 ],
@@ -290,134 +376,45 @@ class _BalanceCard extends StatelessWidget {
   }
 }
 
-class _MiniStat extends StatelessWidget {
+class _WalletMini extends StatelessWidget {
   final String label, value;
   final IconData icon;
-  final bool alignEnd;
 
-  const _MiniStat({
+  const _WalletMini({
     required this.label,
     required this.value,
     required this.icon,
-    this.alignEnd = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(left: alignEnd ? 14 : 0, right: alignEnd ? 0 : 14),
-      child: Column(
-        crossAxisAlignment:
-            alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(7),
-                ),
-                child: Icon(icon, size: 13, color: Colors.white),
-              ),
-              const SizedBox(width: 7),
-              Text(label,
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 12.5)),
-            ],
-          ),
-          const SizedBox(height: 7),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(value,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Tezkor amallar ──────────────────────────────────────────────────────────
-
-class _QuickActions extends StatelessWidget {
-  final AppProvider provider;
-  const _QuickActions({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final s = provider.s;
     return Row(
       children: [
+        Icon(icon, size: 15, color: Colors.white.withValues(alpha: 0.8)),
+        const SizedBox(width: 8),
         Expanded(
-          child: _ActionButton(
-            label: s('income'),
-            icon: Icons.add_rounded,
-            color: AppColors.income,
-            onTap: () =>
-                showAddTransactionModal(context, provider, 'income'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _ActionButton(
-            label: s('expense'),
-            icon: Icons.remove_rounded,
-            color: AppColors.expense,
-            onTap: () =>
-                showAddTransactionModal(context, provider, 'expense'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 11)),
+              const SizedBox(height: 1),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(value,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                child: Icon(icon, color: Colors.white, size: 17),
-              ),
-              const SizedBox(width: 9),
-              Text(label,
-                  style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14.5)),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
@@ -431,8 +428,9 @@ class _BudgetCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = provider.s;
+    final monthExpense = provider.expenseThisMonth(provider.currency);
     final used = provider.monthlyBudget > 0
-        ? (provider.thisMonthExpense / provider.monthlyBudget).clamp(0.0, 1.0)
+        ? (monthExpense / provider.monthlyBudget).clamp(0.0, 1.0)
         : 0.0;
     final over = used >= 0.85;
     final barColor = over ? AppColors.expense : AppColors.brand;
@@ -479,7 +477,7 @@ class _BudgetCard extends StatelessWidget {
           ),
           const SizedBox(height: 9),
           Text(
-            '${Money.format(provider.thisMonthExpense, provider.currency)}  /  ${Money.format(provider.monthlyBudget, provider.currency)}',
+            '${Money.format(monthExpense, provider.currency)}  /  ${Money.format(provider.monthlyBudget, provider.currency)}',
             style: context.t.bodySmall,
           ),
         ],

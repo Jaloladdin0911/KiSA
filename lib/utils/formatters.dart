@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 // Pul va sana formatlash — butun ilova uchun yagona manba.
 // Moliyaviy ilovada aniqlik muhim, shuning uchun summalar to'liq
 // ko'rsatiladi (masalan "1 250 000 UZS"), faqat grafik kabi tor
@@ -5,6 +7,19 @@
 
 class Money {
   Money._();
+
+  /// Summa kiritish maydonlari uchun — raqam yozilayotganda minglik xonalarni
+  /// jonli ajratadi (1000000 -> "1 000 000"), shunda foydalanuvchi adashmaydi.
+  static final List<TextInputFormatter> amountFormatters = [
+    _ThousandsInputFormatter(),
+  ];
+
+  /// Ajratuvchili matnni songa aylantiradi: "1 250 000.50" -> 1250000.5
+  static double? parse(String text) {
+    final cleaned = text.replaceAll(' ', '').replaceAll(' ', '').trim();
+    if (cleaned.isEmpty) return null;
+    return double.tryParse(cleaned);
+  }
 
   static const Map<String, String> symbols = {
     'UZS': "so'm",
@@ -34,6 +49,13 @@ class Money {
       return '$sign$sym$number';
     }
     return '$sign$number $sym';
+  }
+
+  /// Faqat raqam (valyutasiz), minglik ajratilgan — kiritish maydonini
+  /// oldindan to'ldirish uchun: 1250000 -> "1 250 000".
+  static String plain(double amount, {String currency = 'UZS'}) {
+    final digits = _hasDecimals(currency) ? 2 : 0;
+    return _group(amount.abs(), digits);
   }
 
   /// Ixcham ko'rinish — grafik o'qlari va tor kartalar uchun.
@@ -78,4 +100,37 @@ class DateFmt {
 
   static String short(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+}
+
+/// Summa yozilayotganda minglik xonalarni bo'shliq bilan ajratadi.
+class _ThousandsInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text.replaceAll(' ', '');
+    if (text.isEmpty) return newValue.copyWith(text: '');
+
+    // Faqat raqam va bitta nuqtaga ruxsat
+    final dotIndex = text.indexOf('.');
+    String intPart;
+    String? decPart;
+    if (dotIndex >= 0) {
+      intPart = text.substring(0, dotIndex).replaceAll(RegExp(r'\D'), '');
+      decPart = text.substring(dotIndex + 1).replaceAll(RegExp(r'\D'), '');
+    } else {
+      intPart = text.replaceAll(RegExp(r'\D'), '');
+    }
+
+    final grouped = intPart.replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]} ',
+    );
+
+    final result = decPart != null ? '$grouped.$decPart' : grouped;
+
+    return TextEditingValue(
+      text: result,
+      selection: TextSelection.collapsed(offset: result.length),
+    );
+  }
 }

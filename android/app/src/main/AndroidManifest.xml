@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Firebase sync va valyuta kursi (cbu.uz) uchun internet kerak -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="kisa"
+        android:label="KiSA"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

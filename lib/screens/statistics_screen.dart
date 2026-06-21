@@ -6,6 +6,7 @@ import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/categories.dart';
+import '../utils/wallets.dart';
 import '../widgets/ui_kit.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -18,6 +19,7 @@ class StatisticsScreen extends StatefulWidget {
 class _StatisticsScreenState extends State<StatisticsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String _currency = Wallets.uzs;
 
   @override
   void initState() {
@@ -44,6 +46,60 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             child: Column(
               children: [
                 PageHeader(title: s('statistics')),
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
+                  child: Row(
+                    children: Wallets.currencies.map((cur) {
+                      final selected = cur == _currency;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8, bottom: 12),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _currency = cur),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? AppColors.brand.withValues(alpha: 0.13)
+                                  : c.surfaceAlt,
+                              borderRadius: BorderRadius.circular(AppRadius.pill),
+                              border: Border.all(
+                                color: selected
+                                    ? AppColors.brand
+                                    : Colors.transparent,
+                                width: 1.4,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Wallets.currencyIcon(cur),
+                                    size: 15,
+                                    color: selected
+                                        ? AppColors.brand
+                                        : c.textSecondary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  cur == Wallets.usd ? 'Dollar' : "So'm",
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: selected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: selected
+                                          ? AppColors.brand
+                                          : c.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
@@ -78,8 +134,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _ChartTab(provider: provider),
-                      _CategoriesTab(provider: provider),
+                      _ChartTab(provider: provider, currency: _currency),
+                      _CategoriesTab(provider: provider, currency: _currency),
                     ],
                   ),
                 ),
@@ -96,13 +152,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
 class _ChartTab extends StatelessWidget {
   final AppProvider provider;
-  const _ChartTab({required this.provider});
+  final String currency;
+  const _ChartTab({required this.provider, required this.currency});
 
   @override
   Widget build(BuildContext context) {
     final s = provider.s;
     final months = kMonthNames[provider.language] ?? kMonthNames['uz']!;
-    final monthData = provider.last6MonthsData;
+    final monthData = provider.last6MonthsData(currency);
     final maxY = monthData
             .expand((d) => [d['income'] as double, d['expense'] as double])
             .fold(0.0, (a, b) => a > b ? a : b) *
@@ -118,7 +175,7 @@ class _ChartTab extends StatelessWidget {
               child: _SummaryCard(
                 label: s('this_month_income'),
                 value: Money.format(
-                    provider.thisMonthIncome, provider.currency),
+                    provider.incomeThisMonth(currency), currency),
                 color: AppColors.income,
                 icon: Icons.trending_up_rounded,
               ),
@@ -128,7 +185,7 @@ class _ChartTab extends StatelessWidget {
               child: _SummaryCard(
                 label: s('this_month_expense'),
                 value: Money.format(
-                    provider.thisMonthExpense, provider.currency),
+                    provider.expenseThisMonth(currency), currency),
                 color: AppColors.expense,
                 icon: Icons.trending_down_rounded,
               ),
@@ -157,7 +214,7 @@ class _ChartTab extends StatelessWidget {
                             getTooltipColor: (_) => AppColors.lTextPrimary,
                             getTooltipItem: (group, _, rod, rodIndex) =>
                                 BarTooltipItem(
-                              '${rodIndex == 0 ? s('income') : s('expense')}\n${Money.compact(rod.toY, provider.currency)}',
+                              '${rodIndex == 0 ? s('income') : s('expense')}\n${Money.compact(rod.toY, currency)}',
                               const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -242,12 +299,13 @@ class _ChartTab extends StatelessWidget {
 
 class _CategoriesTab extends StatelessWidget {
   final AppProvider provider;
-  const _CategoriesTab({required this.provider});
+  final String currency;
+  const _CategoriesTab({required this.provider, required this.currency});
 
   @override
   Widget build(BuildContext context) {
     final s = provider.s;
-    final expCat = provider.expenseByCategory;
+    final expCat = provider.expenseByCategory(currency);
     final total = expCat.values.fold(0.0, (a, b) => a + b);
     final sorted = expCat.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
@@ -291,7 +349,7 @@ class _CategoriesTab extends StatelessWidget {
                   children: [
                     Text(s('expense'), style: context.t.bodySmall),
                     const SizedBox(height: 2),
-                    Text(Money.compact(total, provider.currency),
+                    Text(Money.compact(total, currency),
                         style: context.t.titleMedium),
                   ],
                 ),
@@ -323,7 +381,7 @@ class _CategoriesTab extends StatelessWidget {
                     Expanded(
                       child: Text(s.cat(e.key), style: context.t.titleSmall),
                     ),
-                    Text(Money.format(e.value, provider.currency),
+                    Text(Money.format(e.value, currency),
                         style: context.t.titleSmall),
                   ],
                 ),

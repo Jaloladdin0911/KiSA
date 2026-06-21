@@ -8,11 +8,13 @@ import '../l10n/app_strings.dart';
 import 'local_database.dart';
 import 'sync_service.dart';
 import 'auth_service.dart';
+import 'rate_service.dart';
 
 class AppProvider extends ChangeNotifier {
   final LocalDatabase _local = LocalDatabase();
   final SyncService _sync = SyncService();
   final AuthService _auth = AuthService();
+  final RateService _rate = RateService();
 
   List<TransactionModel> _transactions = [];
   List<GoalModel> _goals = [];
@@ -24,6 +26,8 @@ class AppProvider extends ChangeNotifier {
   bool _isOnline = false;
   String _language = 'uz';
   String _userName = 'Foydalanuvchi';
+  double _usdRate = 0;
+  DateTime? _rateDate;
 
   StreamSubscription? _connectivitySub;
 
@@ -39,46 +43,66 @@ class AppProvider extends ChangeNotifier {
   AppStrings get s => AppStrings(_language);
   String get userId => _auth.userId;
   String get userName => _userName;
+  double get usdRate => _usdRate;
+  DateTime? get rateDate => _rateDate;
 
-  double get totalIncome => _transactions
-      .where((t) => t.type == 'income')
-      .fold(0, (s, t) => s + t.amount);
+  // ── Hamyon balanslari ──────────────────────────────────────────────────────
+  // Har bir hamyon = (joy: naqd/karta) × (valyuta: UZS/USD). Har xil valyuta
+  // qo'shilmaydi — balanslar har doim valyuta bo'yicha alohida hisoblanadi.
 
-  double get totalExpense => _transactions
-      .where((t) => t.type == 'expense')
-      .fold(0, (s, t) => s + t.amount);
-
-  double get balance => totalIncome - totalExpense;
-
-  double get thisMonthIncome {
-    final now = DateTime.now();
-    return _transactions
-        .where((t) =>
-            t.type == 'income' &&
-            t.date.month == now.month &&
-            t.date.year == now.year)
-        .fold(0, (s, t) => s + t.amount);
+  /// Bitta hamyon (joy + valyuta) balansi. Kirim qo'shadi, chiqim ayiradi,
+  /// o'tkazma/ayirboshlash manbadan ayirib, qabul qiluvchiga qo'shadi.
+  double balanceOf(String place, String currency) {
+    double sum = 0;
+    for (final t in _transactions) {
+      if (t.type == 'income') {
+        if (t.place == place && t.currency == currency) sum += t.amount;
+      } else if (t.type == 'expense') {
+        if (t.place == place && t.currency == currency) sum -= t.amount;
+      } else {
+        // transfer / exchange
+        if (t.place == place && t.currency == currency) sum -= t.amount;
+        final toP = t.toPlace ?? t.place;
+        final toC = t.toCurrency ?? t.currency;
+        final toA = t.toAmount ?? t.amount;
+        if (toP == place && toC == currency) sum += toA;
+      }
+    }
+    return sum;
   }
 
-  double get thisMonthExpense {
+  /// Valyuta bo'yicha jami (naqd + karta).
+  double currencyBalance(String currency) =>
+      balanceOf('cash', currency) + balanceOf('card', currency);
+
+  /// Asosiy valyuta balansi (orqaga moslik uchun).
+  double get balance => currencyBalance(_currency);
+
+  Iterable<TransactionModel> _monthTx(String currency, String type) {
     final now = DateTime.now();
-    return _transactions
-        .where((t) =>
-            t.type == 'expense' &&
-            t.date.month == now.month &&
-            t.date.year == now.year)
-        .fold(0, (s, t) => s + t.amount);
+    return _transactions.where((t) =>
+        t.type == type &&
+        t.currency == currency &&
+        t.date.month == now.month &&
+        t.date.year == now.year);
   }
 
-  Map<String, double> get expenseByCategory {
+  double incomeThisMonth(String currency) =>
+      _monthTx(currency, 'income').fold(0.0, (s, t) => s + t.amount);
+
+  double expenseThisMonth(String currency) =>
+      _monthTx(currency, 'expense').fold(0.0, (s, t) => s + t.amount);
+
+  Map<String, double> expenseByCategory(String currency) {
     final Map<String, double> result = {};
-    for (final t in _transactions.where((t) => t.type == 'expense')) {
+    for (final t in _transactions
+        .where((t) => t.type == 'expense' && t.currency == currency)) {
       result[t.category] = (result[t.category] ?? 0) + t.amount;
     }
     return result;
   }
 
-  List<Map<String, dynamic>> get last6MonthsData {
+  List<Map<String, dynamic>> last6MonthsData(String currency) {
     final now = DateTime.now();
     return List.generate(6, (i) {
       final month = DateTime(now.year, now.month - (5 - i), 1);
@@ -87,18 +111,28 @@ class AppProvider extends ChangeNotifier {
         'income': _transactions
             .where((t) =>
                 t.type == 'income' &&
+                t.currency == currency &&
                 t.date.month == month.month &&
                 t.date.year == month.year)
             .fold(0.0, (s, t) => s + t.amount),
         'expense': _transactions
             .where((t) =>
                 t.type == 'expense' &&
+                t.currency == currency &&
                 t.date.month == month.month &&
                 t.date.year == month.year)
             .fold(0.0, (s, t) => s + t.amount),
       };
     });
   }
+
+  /// AI tahlili uchun — bitta valyutadagi faqat kirim/chiqim amallari.
+  List<TransactionModel> transactionsInCurrency(String currency) =>
+      _transactions
+          .where((t) =>
+              (t.type == 'income' || t.type == 'expense') &&
+              t.currency == currency)
+          .toList();
 
   Future<void> init() async {
     _isLoading = true;
@@ -110,6 +144,9 @@ class AppProvider extends ChangeNotifier {
     _monthlyBudget = prefs.getDouble('monthly_budget') ?? 0.0;
     _language = prefs.getString('language') ?? 'uz';
     _userName = _resolveUserName(prefs);
+    _usdRate = prefs.getDouble('usd_rate') ?? 0;
+    final rd = prefs.getString('usd_rate_date');
+    _rateDate = rd != null ? DateTime.tryParse(rd) : null;
 
     await _loadFromLocal();
 
@@ -132,7 +169,30 @@ class AppProvider extends ChangeNotifier {
       _syncWithFirebase();
     }
 
+    // Kursni fonda yangilash (offline bo'lsa kesh qoladi)
+    _refreshRate();
+
     _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> _refreshRate() async {
+    final r = await _rate.fetchUsdRate();
+    if (r != null) {
+      _usdRate = r;
+      _rateDate = DateTime.now();
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshRate() => _refreshRate();
+
+  Future<void> setUsdRate(double value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble('usd_rate', value);
+    await prefs.setString('usd_rate_date', DateTime.now().toIso8601String());
+    _usdRate = value;
+    _rateDate = DateTime.now();
     notifyListeners();
   }
 
@@ -157,6 +217,23 @@ class AppProvider extends ChangeNotifier {
   Future<void> addTransaction(TransactionModel t) async {
     await _local.insertTransaction(t);
     _transactions.insert(0, t);
+    notifyListeners();
+
+    if (_isOnline && _auth.isLoggedIn) {
+      _syncWithFirebase();
+    }
+  }
+
+  Future<void> updateTransaction(TransactionModel t) async {
+    final updated = t.copyWith(isSynced: false);
+    await _local.insertTransaction(updated);
+    final idx = _transactions.indexWhere((x) => x.id == t.id);
+    if (idx != -1) {
+      _transactions[idx] = updated;
+    } else {
+      _transactions.add(updated);
+    }
+    _transactions.sort((a, b) => b.date.compareTo(a.date));
     notifyListeners();
 
     if (_isOnline && _auth.isLoggedIn) {

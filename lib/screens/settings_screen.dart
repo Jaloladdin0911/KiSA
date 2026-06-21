@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_strings.dart';
 import '../services/app_provider.dart';
@@ -51,6 +50,15 @@ class SettingsScreen extends StatelessWidget {
                                 provider.monthlyBudget, provider.currency)
                             : s('not_set'),
                         onTap: () => _budgetDialog(context, provider, s),
+                      ),
+                      _Tile(
+                        icon: Icons.currency_exchange_rounded,
+                        iconColor: AppColors.violet,
+                        title: s('usd_rate'),
+                        subtitle: provider.usdRate > 0
+                            ? '1 \$ = ${Money.format(provider.usdRate, 'UZS')}'
+                            : s('not_set'),
+                        onTap: () => _rateDialog(context, provider, s),
                       ),
 
                       GroupLabel(s('appearance')),
@@ -108,8 +116,8 @@ class SettingsScreen extends StatelessWidget {
                       _StatRow(
                         icon: Icons.savings_outlined,
                         label: s('stat_total_balance'),
-                        value: Money.format(
-                            provider.balance, provider.currency),
+                        value:
+                            '${Money.compact(provider.currencyBalance('UZS'), 'UZS')}  ·  ${Money.compact(provider.currencyBalance('USD'), 'USD')}',
                       ),
 
                       const SizedBox(height: 16),
@@ -145,7 +153,7 @@ class SettingsScreen extends StatelessWidget {
 
   void _currencyDialog(
       BuildContext context, AppProvider provider, AppStrings s) {
-    const currencies = ['UZS', 'USD', 'EUR', 'RUB'];
+    const currencies = ['UZS', 'USD'];
     _radioSheet<String>(
       context,
       title: s('select_currency'),
@@ -235,11 +243,72 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  void _rateDialog(BuildContext context, AppProvider provider, AppStrings s) {
+    final ctrl = TextEditingController(
+        text: provider.usdRate > 0
+            ? Money.plain(provider.usdRate, currency: 'UZS')
+            : '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(s('usd_rate')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: Money.amountFormatters,
+              decoration: InputDecoration(
+                labelText: s('set_rate'),
+                prefixText: '1 \$ = ',
+                suffixText: "so'm",
+              ),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () async {
+                  await provider.refreshRate();
+                  if (ctx.mounted && provider.usdRate > 0) {
+                    ctrl.text = Money.plain(provider.usdRate, currency: 'UZS');
+                  }
+                },
+                icon: const Icon(Icons.cloud_download_outlined, size: 18),
+                label: Text(s('cbu_rate')),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s('cancel'),
+                style: TextStyle(color: ctx.c.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 20)),
+            onPressed: () {
+              final r = Money.parse(ctrl.text);
+              if (r != null && r > 0) provider.setUsdRate(r);
+              Navigator.pop(ctx);
+            },
+            child: Text(s('save')),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _budgetDialog(
       BuildContext context, AppProvider provider, AppStrings s) {
     final ctrl = TextEditingController(
         text: provider.monthlyBudget > 0
-            ? provider.monthlyBudget.toStringAsFixed(0)
+            ? Money.plain(provider.monthlyBudget, currency: provider.currency)
             : '');
     _inputDialog(
       context,
@@ -248,7 +317,7 @@ class SettingsScreen extends StatelessWidget {
       label: s('amount'),
       suffix: provider.currency,
       number: true,
-      onSave: () => provider.setMonthlyBudget(double.tryParse(ctrl.text) ?? 0),
+      onSave: () => provider.setMonthlyBudget(Money.parse(ctrl.text) ?? 0),
       saveLabel: s('save'),
       cancelLabel: s('cancel'),
     );
@@ -305,9 +374,7 @@ class SettingsScreen extends StatelessWidget {
           keyboardType: number
               ? const TextInputType.numberWithOptions(decimal: true)
               : TextInputType.text,
-          inputFormatters: number
-              ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-              : null,
+          inputFormatters: number ? Money.amountFormatters : null,
           textCapitalization:
               number ? TextCapitalization.none : TextCapitalization.words,
           decoration: InputDecoration(labelText: label, suffixText: suffix),

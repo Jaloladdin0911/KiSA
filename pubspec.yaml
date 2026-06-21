@@ -2,7 +2,7 @@ name: kisa
 description: KiSA - Shaxsiy moliyaviy boshqaruv ilovasi (SQLite + Firebase)
 
 publish_to: 'none'
-version: 2.0.0+1
+version: 2.0.0+2
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -32,6 +32,9 @@ dependencies:
   # Sozlamalar
   shared_preferences: ^2.3.1
 
+  # Valyuta kursi (Markaziy bank API)
+  http: ^1.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -40,28 +43,29 @@ dev_dependencies:
 
 # Ilova ikonkasi — barcha platformalar uchun
 flutter_launcher_icons:
-  image_path: "assets/icon/kisa_icon.png"
+  image_path: "assets/icon/kisa-1024.png"
   android: true
   ios: true
   remove_alpha_ios: true
   min_sdk_android: 21
-  adaptive_icon_background: "#4263EB"
-  adaptive_icon_foreground: "assets/icon/kisa_icon_fg.png"
   web:
     generate: true
-    image_path: "assets/icon/kisa_icon.png"
-    background_color: "#4263EB"
-    theme_color: "#4263EB"
+    image_path: "assets/icon/kisa-1024.png"
+    background_color: "#099268"
+    theme_color: "#099268"
   windows:
     generate: true
-    image_path: "assets/icon/kisa_icon.png"
+    image_path: "assets/icon/kisa-1024.png"
     icon_size: 48
   macos:
     generate: true
-    image_path: "assets/icon/kisa_icon.png"
+    image_path: "assets/icon/kisa-1024.png"
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/icon/
 
   fonts:
     - family: Poppins
