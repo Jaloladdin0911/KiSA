@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../l10n/app_strings.dart';
 import '../services/app_provider.dart';
-import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../widgets/ui_kit.dart';
@@ -16,7 +15,6 @@ class SettingsScreen extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
         final s = provider.s;
-        final auth = AuthService();
 
         return Scaffold(
           body: SafeArea(
@@ -32,7 +30,7 @@ class SettingsScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Profil
-                      _ProfileCard(provider: provider, auth: auth),
+                      _ProfileCard(provider: provider),
 
                       GroupLabel(s('finance')),
                       _Tile(
@@ -82,25 +80,6 @@ class SettingsScreen extends StatelessWidget {
                         onTap: () => _languageDialog(context, provider, s),
                       ),
 
-                      if (auth.isLoggedIn) ...[
-                        GroupLabel(s('sync')),
-                        _Tile(
-                          icon: provider.isSyncing
-                              ? Icons.sync_rounded
-                              : Icons.cloud_sync_outlined,
-                          iconColor: AppColors.brand,
-                          title: provider.isSyncing
-                              ? s('syncing')
-                              : s('firebase_sync'),
-                          subtitle: provider.isOnline
-                              ? s('online')
-                              : s('offline'),
-                          onTap: provider.isSyncing
-                              ? null
-                              : () => provider.manualSync(),
-                        ),
-                      ],
-
                       GroupLabel(s('data_section')),
                       _StatRow(
                         icon: Icons.receipt_long_outlined,
@@ -127,16 +106,6 @@ class SettingsScreen extends StatelessWidget {
                         subtitle: s('irreversible'),
                         onTap: () => _clearDialog(context, provider, s),
                       ),
-                      if (auth.isLoggedIn) ...[
-                        const SizedBox(height: 10),
-                        _DangerTile(
-                          icon: Icons.person_remove_outlined,
-                          title: s('delete_account'),
-                          subtitle: s('delete_account_desc'),
-                          onTap: () =>
-                              _deleteAccountDialog(context, provider, s),
-                        ),
-                      ],
 
                       GroupLabel(s('about_app')),
                       _Tile(
@@ -381,48 +350,6 @@ class SettingsScreen extends StatelessWidget {
     } catch (_) {}
   }
 
-  void _deleteAccountDialog(
-      BuildContext context, AppProvider provider, AppStrings s) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s('delete_account'),
-            style: const TextStyle(color: AppColors.expense)),
-        content: Text(s('delete_account_confirm'), style: ctx.t.bodyMedium),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(s('cancel'),
-                style: TextStyle(color: ctx.c.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.expense,
-                minimumSize: const Size(0, 44),
-                padding: const EdgeInsets.symmetric(horizontal: 20)),
-            onPressed: () async {
-              final messenger = ScaffoldMessenger.of(context);
-              final navigator = Navigator.of(context);
-              Navigator.pop(ctx);
-              try {
-                await provider.deleteAccount();
-                messenger.showSnackBar(
-                    SnackBar(content: Text(s('account_deleted'))));
-                navigator.pushNamedAndRemoveUntil('/auth', (r) => false);
-              } catch (e) {
-                final msg = e.toString().contains('reauth')
-                    ? s('reauth_needed')
-                    : e.toString();
-                messenger.showSnackBar(SnackBar(content: Text(msg)));
-              }
-            },
-            child: Text(s('delete')),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _inputDialog(
     BuildContext context, {
     required String title,
@@ -475,100 +402,58 @@ class SettingsScreen extends StatelessWidget {
 
 class _ProfileCard extends StatelessWidget {
   final AppProvider provider;
-  final AuthService auth;
-  const _ProfileCard({required this.provider, required this.auth});
+  const _ProfileCard({required this.provider});
 
   @override
   Widget build(BuildContext context) {
     final s = provider.s;
-    final loggedIn = auth.isLoggedIn;
     final initial = provider.userName.isNotEmpty
         ? provider.userName.characters.first.toUpperCase()
         : 'K';
 
     return AppCard(
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.brandSoft, AppColors.brandDeep],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
-                child: Text(initial,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 23,
-                        fontWeight: FontWeight.w800)),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.brandSoft, AppColors.brandDeep],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(provider.userName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: context.t.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(
-                      loggedIn
-                          ? (auth.currentUser?.email ?? '')
-                          : s('local_data_only'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.t.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              CircleAction(
-                icon: Icons.edit_outlined,
-                onTap: () => _nameDialog(context, provider, s),
-              ),
-            ],
+              borderRadius: BorderRadius.circular(16),
+            ),
+            alignment: Alignment.center,
+            child: Text(initial,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800)),
           ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: loggedIn
-                ? OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.expense,
-                      side: BorderSide(
-                          color: AppColors.expense.withValues(alpha: 0.4)),
-                      minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.md)),
-                    ),
-                    onPressed: () =>
-                        _logoutDialog(context, auth, provider, s),
-                    icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: Text(s('logout')),
-                  )
-                : OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.brand,
-                      side: BorderSide(
-                          color: AppColors.brand.withValues(alpha: 0.4)),
-                      minimumSize: const Size.fromHeight(46),
-                      shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.md)),
-                    ),
-                    onPressed: () => Navigator.pushNamed(context, '/auth'),
-                    icon: const Icon(Icons.login_rounded, size: 18),
-                    label: Text(s('login')),
-                  ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(provider.userName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: context.t.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  s('local_data_only'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.t.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          CircleAction(
+            icon: Icons.edit_outlined,
+            onTap: () => _nameDialog(context, provider, s),
           ),
         ],
       ),
@@ -610,37 +495,6 @@ class _ProfileCard extends StatelessWidget {
     );
   }
 
-  void _logoutDialog(BuildContext context, AuthService auth,
-      AppProvider provider, AppStrings s) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(s('logout')),
-        content: Text(s('logout_confirm'), style: ctx.t.bodyMedium),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(s('cancel'),
-                style: TextStyle(color: ctx.c.textSecondary)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.expense,
-                minimumSize: const Size(0, 44),
-                padding: const EdgeInsets.symmetric(horizontal: 20)),
-            onPressed: () async {
-              await auth.signOut();
-              if (context.mounted) {
-                await provider.init();
-                if (ctx.mounted) Navigator.pop(ctx);
-              }
-            },
-            child: Text(s('logout')),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Qayta ishlatiladigan satrlar ──────────────────────────────────────────────
@@ -789,12 +643,8 @@ class _StatRow extends StatelessWidget {
 class _DangerTile extends StatelessWidget {
   final String title, subtitle;
   final VoidCallback onTap;
-  final IconData icon;
   const _DangerTile(
-      {required this.title,
-      required this.subtitle,
-      required this.onTap,
-      this.icon = Icons.delete_forever_outlined});
+      {required this.title, required this.subtitle, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -813,8 +663,10 @@ class _DangerTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              IconBadge(
-                  icon: icon, color: AppColors.expense, size: 40),
+              const IconBadge(
+                  icon: Icons.delete_forever_outlined,
+                  color: AppColors.expense,
+                  size: 40),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

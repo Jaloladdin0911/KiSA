@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'services/app_provider.dart';
 import 'services/local_database.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
-import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/statistics_screen.dart';
 import 'screens/goals_screen.dart';
@@ -16,13 +14,8 @@ import 'widgets/transaction_card.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hive — web + mobile + desktop
+  // Hive — barcha ma'lumotlar qurilmada lokal saqlanadi (offline)
   await LocalDatabase.initialize();
-
-  // Firebase — muvaffaqiyatsiz bo'lsa offline rejimda ishlaydi
-  try {
-    await Firebase.initializeApp();
-  } catch (_) {}
 
   runApp(
     ChangeNotifierProvider(
@@ -47,7 +40,6 @@ class KisaApp extends StatelessWidget {
         home: const SplashScreen(),
         routes: {
           '/home': (_) => const MainNavigator(),
-          '/auth': (_) => const AuthScreen(),
         },
       ),
     );

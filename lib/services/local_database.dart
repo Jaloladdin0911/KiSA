@@ -31,25 +31,8 @@ class LocalDatabase {
     await _tx.put(t.id, t.toSqlite());
   }
 
-  Future<void> updateTransactionSync(String id, bool synced) async {
-    final existing = _tx.get(id);
-    if (existing != null) {
-      final map = Map<String, dynamic>.from(existing as Map);
-      map['is_synced'] = synced ? 1 : 0;
-      await _tx.put(id, map);
-    }
-  }
-
   Future<void> deleteTransaction(String id) async {
     await _tx.delete(id);
-  }
-
-  Future<List<TransactionModel>> getUnsyncedTransactions(String userId) async {
-    return _tx.values
-        .map((v) => Map<String, dynamic>.from(v as Map))
-        .where((m) => m['user_id'] == userId && m['is_synced'] == 0)
-        .map(TransactionModel.fromSqlite)
-        .toList();
   }
 
   // ─── GOALS ────────────────────────────────────────────────────────────────
@@ -72,14 +55,6 @@ class LocalDatabase {
 
   Future<void> deleteGoal(String id) async {
     await _goals.delete(id);
-  }
-
-  Future<List<GoalModel>> getUnsyncedGoals(String userId) async {
-    return _goals.values
-        .map((v) => Map<String, dynamic>.from(v as Map))
-        .where((m) => m['user_id'] == userId && m['is_synced'] == 0)
-        .map(GoalModel.fromSqlite)
-        .toList();
   }
 
   // ─── TOZALASH ─────────────────────────────────────────────────────────────

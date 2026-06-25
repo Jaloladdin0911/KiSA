@@ -138,21 +138,10 @@ class TransactionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.t.titleSmall),
-                      ),
-                      if (!t.isSynced) ...[
-                        const SizedBox(width: 6),
-                        Icon(Icons.cloud_off_rounded,
-                            size: 12, color: c.textTertiary),
-                      ],
-                    ],
-                  ),
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.t.titleSmall),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,

@@ -1,19 +1,18 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/goal_model.dart';
 import '../l10n/app_strings.dart';
 import 'local_database.dart';
-import 'sync_service.dart';
-import 'auth_service.dart';
 import 'rate_service.dart';
 
+/// Butun ilova holati — to'liq lokal (offline). Ma'lumotlar qurilmada Hive'da
+/// saqlanadi, internetga (Firebase) bog'liq emas. Faqat valyuta kursi onlayn
+/// olinadi (cbu.uz) va keshlanadi; u ham offline'da xatosiz ishlaydi.
 class AppProvider extends ChangeNotifier {
+  static const _userId = 'local_user';
+
   final LocalDatabase _local = LocalDatabase();
-  final SyncService _sync = SyncService();
-  final AuthService _auth = AuthService();
   final RateService _rate = RateService();
 
   List<TransactionModel> _transactions = [];
@@ -22,14 +21,10 @@ class AppProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   double _monthlyBudget = 0.0;
   bool _isLoading = true;
-  bool _isSyncing = false;
-  bool _isOnline = false;
   String _language = 'uz';
   String _userName = 'Foydalanuvchi';
   double _usdRate = 0;
   DateTime? _rateDate;
-
-  StreamSubscription? _connectivitySub;
 
   List<TransactionModel> get transactions => _transactions;
   List<GoalModel> get goals => _goals;
@@ -37,11 +32,9 @@ class AppProvider extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   double get monthlyBudget => _monthlyBudget;
   bool get isLoading => _isLoading;
-  bool get isSyncing => _isSyncing;
-  bool get isOnline => _isOnline;
   String get language => _language;
   AppStrings get s => AppStrings(_language);
-  String get userId => _auth.userId;
+  String get userId => _userId;
   String get userName => _userName;
   double get usdRate => _usdRate;
   DateTime? get rateDate => _rateDate;
@@ -143,33 +136,14 @@ class AppProvider extends ChangeNotifier {
     _isDarkMode = prefs.getBool('dark_mode') ?? false;
     _monthlyBudget = prefs.getDouble('monthly_budget') ?? 0.0;
     _language = prefs.getString('language') ?? 'uz';
-    _userName = _resolveUserName(prefs);
+    _userName = prefs.getString('user_name') ?? 'Foydalanuvchi';
     _usdRate = prefs.getDouble('usd_rate') ?? 0;
     final rd = prefs.getString('usd_rate_date');
     _rateDate = rd != null ? DateTime.tryParse(rd) : null;
 
     await _loadFromLocal();
 
-    // connectivity_plus v6 — List<ConnectivityResult> qaytaradi
-    _connectivitySub = Connectivity()
-        .onConnectivityChanged
-        .listen((List<ConnectivityResult> results) {
-      final wasOnline = _isOnline;
-      _isOnline = results.any((r) => r != ConnectivityResult.none);
-      notifyListeners();
-
-      if (!wasOnline && _isOnline && _auth.isLoggedIn) {
-        _syncWithFirebase();
-      }
-    });
-
-    _isOnline = await _sync.isOnline;
-
-    if (_auth.isLoggedIn && _isOnline) {
-      _syncWithFirebase();
-    }
-
-    // Kursni fonda yangilash (offline bo'lsa kesh qoladi)
+    // Kursni fonda yangilash (offline bo'lsa kesh qoladi, xatosiz tushadi)
     _refreshRate();
 
     _isLoading = false;
@@ -197,20 +171,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> _loadFromLocal() async {
-    _transactions = await _local.getTransactions(userId);
-    _goals = await _local.getGoals(userId);
-    notifyListeners();
-  }
-
-  Future<void> _syncWithFirebase() async {
-    if (_isSyncing) return;
-    _isSyncing = true;
-    notifyListeners();
-
-    await _sync.syncAll(userId);
-    await _loadFromLocal();
-
-    _isSyncing = false;
+    _transactions = await _local.getTransactions(_userId);
+    _goals = await _local.getGoals(_userId);
     notifyListeners();
   }
 
@@ -218,47 +180,30 @@ class AppProvider extends ChangeNotifier {
     await _local.insertTransaction(t);
     _transactions.insert(0, t);
     notifyListeners();
-
-    if (_isOnline && _auth.isLoggedIn) {
-      _syncWithFirebase();
-    }
   }
 
   Future<void> updateTransaction(TransactionModel t) async {
-    final updated = t.copyWith(isSynced: false);
-    await _local.insertTransaction(updated);
+    await _local.insertTransaction(t);
     final idx = _transactions.indexWhere((x) => x.id == t.id);
     if (idx != -1) {
-      _transactions[idx] = updated;
+      _transactions[idx] = t;
     } else {
-      _transactions.add(updated);
+      _transactions.add(t);
     }
     _transactions.sort((a, b) => b.date.compareTo(a.date));
     notifyListeners();
-
-    if (_isOnline && _auth.isLoggedIn) {
-      _syncWithFirebase();
-    }
   }
 
   Future<void> deleteTransaction(String id) async {
     await _local.deleteTransaction(id);
     _transactions.removeWhere((t) => t.id == id);
     notifyListeners();
-
-    if (_isOnline && _auth.isLoggedIn) {
-      await _sync.deleteTransactionFromFirebase(userId, id);
-    }
   }
 
   Future<void> addGoal(GoalModel goal) async {
     await _local.insertGoal(goal);
     _goals.add(goal);
     notifyListeners();
-
-    if (_isOnline && _auth.isLoggedIn) {
-      _syncWithFirebase();
-    }
   }
 
   Future<void> updateGoal(GoalModel updated) async {
@@ -266,33 +211,17 @@ class AppProvider extends ChangeNotifier {
     final idx = _goals.indexWhere((g) => g.id == updated.id);
     if (idx != -1) _goals[idx] = updated;
     notifyListeners();
-
-    if (_isOnline && _auth.isLoggedIn) {
-      _syncWithFirebase();
-    }
   }
 
   Future<void> deleteGoal(String id) async {
     await _local.deleteGoal(id);
     _goals.removeWhere((g) => g.id == id);
     notifyListeners();
-
-    if (_isOnline && _auth.isLoggedIn) {
-      await _sync.deleteGoalFromFirebase(userId, id);
-    }
-  }
-
-  // Firebase displayName birinchi o'rinda, bo'lmasa lokal saqlangan ism.
-  String _resolveUserName(SharedPreferences prefs) {
-    final fromFirebase = _auth.currentUser?.displayName;
-    if (fromFirebase != null && fromFirebase.isNotEmpty) return fromFirebase;
-    final local = prefs.getString('user_name');
-    if (local != null && local.isNotEmpty) return local;
-    return 'Foydalanuvchi';
   }
 
   Future<void> setUserName(String name) async {
-    await _auth.updateDisplayName(name);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', name);
     _userName = name;
     notifyListeners();
   }
@@ -326,40 +255,9 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> clearAllData() async {
-    await _local.clearUserData(userId);
+    await _local.clearUserData(_userId);
     _transactions = [];
     _goals = [];
     notifyListeners();
-  }
-
-  /// Akkauntni va barcha ma'lumotlarni butunlay o'chiradi (App Store talabi).
-  /// Xato bo'lsa (masalan qayta kirish kerak) yuqoriga uzatiladi.
-  Future<void> deleteAccount() async {
-    final uid = userId;
-
-    // 1) Firestore ma'lumotlari (auth user o'chirilishidan oldin)
-    if (_isOnline && _auth.isLoggedIn) {
-      await _sync.deleteAllUserData(uid);
-    }
-
-    // 2) Auth akkauntni o'chir — muvaffaqiyatsiz bo'lsa to'xtaymiz
-    await _auth.deleteAccount();
-
-    // 3) Lokal ma'lumotlarni tozala
-    await _local.clearUserData(uid);
-    _transactions = [];
-    _goals = [];
-    notifyListeners();
-  }
-
-  Future<void> manualSync() async {
-    if (!_auth.isLoggedIn) return;
-    await _syncWithFirebase();
-  }
-
-  @override
-  void dispose() {
-    _connectivitySub?.cancel();
-    super.dispose();
   }
 }

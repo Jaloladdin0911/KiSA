@@ -31,7 +31,7 @@ class DashboardScreen extends StatelessWidget {
             child: RefreshIndicator(
               color: AppColors.brand,
               backgroundColor: c.surface,
-              onRefresh: () => provider.manualSync(),
+              onRefresh: () => provider.refreshRate(),
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
@@ -145,7 +145,6 @@ class _Header extends StatelessWidget {
                   ],
                 ),
               ),
-              _SyncBadge(provider: provider),
             ],
           ),
           if (provider.usdRate > 0) ...[
@@ -192,49 +191,6 @@ class _RateBar extends StatelessWidget {
           const Spacer(),
           Text(provider.s('cbu_rate'),
               style: context.t.labelSmall?.copyWith(fontSize: 10.5)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SyncBadge extends StatelessWidget {
-  final AppProvider provider;
-  const _SyncBadge({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    final online = provider.isOnline;
-    final color = online ? AppColors.brand : c.textTertiary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(AppRadius.pill),
-        border: Border.all(color: c.border),
-      ),
-      child: Row(
-        children: [
-          if (provider.isSyncing)
-            const SizedBox(
-              width: 13,
-              height: 13,
-              child: CircularProgressIndicator(
-                  strokeWidth: 2, color: AppColors.brand),
-            )
-          else
-            Icon(online ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-                size: 14, color: color),
-          const SizedBox(width: 6),
-          Text(
-            provider.isSyncing
-                ? provider.s('syncing')
-                : (online ? provider.s('online') : provider.s('offline')),
-            style: TextStyle(
-                fontSize: 11.5, fontWeight: FontWeight.w600, color: color),
-          ),
         ],
       ),
     );
