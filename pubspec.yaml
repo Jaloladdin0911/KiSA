@@ -2,7 +2,7 @@ name: kisa
 description: KiSA - Shaxsiy moliyaviy boshqaruv ilovasi (to'liq offline, lokal)
 
 publish_to: 'none'
-version: 2.0.0+3
+version: 2.0.0+4
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -20,6 +20,10 @@ dependencies:
 
   # Grafik
   fl_chart: ^0.69.0
+  percent_indicator: ^4.2.3
+
+  # Shrift (Inter)
+  google_fonts: ^6.2.1
 
   # Sozlamalar
   shared_preferences: ^2.3.1

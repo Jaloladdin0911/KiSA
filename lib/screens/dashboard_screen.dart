@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/transaction_model.dart';
 import '../services/app_provider.dart';
-import '../services/ai_service.dart';
+import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
-import '../utils/wallets.dart';
-import '../widgets/ui_kit.dart';
+import '../utils/categories.dart';
 import '../widgets/transaction_card.dart';
+import 'add_transaction_screen.dart';
+import 'goals_screen.dart';
 
+/// Asosiy ekran — KISA_DESIGN_SPEC.md, Section 5.
+/// Token (KColors/kGradient/k) va real Provider ma'lumotlari bilan, responsive.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -15,83 +19,40 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
-        final s = provider.s;
-        final c = context.c;
-        final recent = provider.transactions.take(6).toList();
-        final insights = AiService.generate(
-          provider.transactionsInCurrency(provider.currency),
-          provider.monthlyBudget,
-          s,
-          provider.currency,
-        );
-
         return Scaffold(
+          backgroundColor: KColors.bg,
           body: SafeArea(
             bottom: false,
-            child: RefreshIndicator(
-              color: AppColors.brand,
-              backgroundColor: c.surface,
-              onRefresh: () => provider.refreshRate(),
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(child: _Header(provider: provider)),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(AppSpacing.screen, 4,
-                        AppSpacing.screen, 24),
-                    sliver: SliverList(
-                      delegate: SliverChildListDelegate([
-                        _WalletsSection(provider: provider),
-                        const SizedBox(height: 22),
-                        if (provider.monthlyBudget > 0) ...[
-                          _BudgetCard(provider: provider),
-                          const SizedBox(height: 22),
-                        ],
-                        if (insights.isNotEmpty) ...[
-                          SectionTitle(s('ai_insights')),
-                          ...insights.map((ins) => _InsightCard(insight: ins)),
-                          const SizedBox(height: 10),
-                        ],
-                        SectionTitle(
-                          s('recent_transactions'),
-                          trailing: Text(
-                            '${provider.transactions.length} ${s('count_suffix')}',
-                            style: context.t.bodySmall,
-                          ),
-                        ),
-                        if (recent.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: EmptyState(
-                              icon: Icons.receipt_long_outlined,
-                              title: s('no_transactions'),
-                              subtitle: s('use_buttons_below'),
-                            ),
-                          )
-                        else
-                          ...recent.map((t) => TransactionCard(
-                                transaction: t,
-                                strings: s,
-                                onDelete: () =>
-                                    provider.deleteTransaction(t.id),
-                                onTap: t.isMovement
-                                    ? null
-                                    : () => showAddTransactionModal(
-                                        context, provider, t.type,
-                                        existing: t),
-                              )),
-                        const SizedBox(height: 12),
-                      ]),
-                    ),
-                  ),
-                ],
-              ),
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 120),
+              children: [
+                const SizedBox(height: 6),
+                Padding(padding: kPad, child: _Header(provider: provider)),
+                const SizedBox(height: 20),
+                Padding(padding: kPad, child: _BalanceCard(provider: provider)),
+                const SizedBox(height: 16),
+                Padding(padding: kPad, child: _StatRow(provider: provider)),
+                const SizedBox(height: 22),
+                Padding(padding: kPad, child: _QuickActions(provider: provider)),
+                const SizedBox(height: 24),
+                Padding(padding: kPad, child: _RecentSection(provider: provider)),
+              ],
             ),
           ),
         );
       },
     );
   }
+}
+
+String _initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+  if (parts.isEmpty) return 'K';
+  if (parts.length == 1) {
+    return parts.first.characters.first.toUpperCase();
+  }
+  return (parts.first.characters.first + parts.elementAt(1).characters.first)
+      .toUpperCase();
 }
 
 // ── Sarlavha ──────────────────────────────────────────────────────────────────
@@ -102,228 +63,204 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initial = provider.userName.isNotEmpty
-        ? provider.userName.characters.first.toUpperCase()
-        : 'K';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screen, 8, AppSpacing.screen, 14),
-      child: Column(
-        children: [
-          Row(
+    return Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: const BoxDecoration(
+            color: Color(0xFFE2E8F0),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Text(_initials(provider.userName),
+              style: k(15, w: FontWeight.w700, c: const Color(0xFF475569))),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.brandSoft, AppColors.brandDeep],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: Text(initial,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w800)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Xush kelibsiz', style: context.t.bodySmall),
-                    const SizedBox(height: 1),
-                    Text(provider.userName,
-                        style: context.t.titleMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                ),
-              ),
+              Text('Assalomu alaykum', style: k(12, c: KColors.sub)),
+              const SizedBox(height: 1),
+              Text(provider.userName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: k(17, w: FontWeight.w600)),
             ],
           ),
-          if (provider.usdRate > 0) ...[
-            const SizedBox(height: 12),
-            _RateBar(provider: provider),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-// ── Valyuta kursi chizig'i (header tagida) ────────────────────────────────────
-
-class _RateBar extends StatelessWidget {
-  final AppProvider provider;
-  const _RateBar({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.brand.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.brand.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.currency_exchange_rounded,
-              size: 16, color: AppColors.brand),
-          const SizedBox(width: 8),
-          Text('1 \$ = ',
-              style: TextStyle(fontSize: 13, color: c.textSecondary)),
-          Text(
-            Money.format(provider.usdRate, 'UZS'),
-            style: const TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w800,
-                color: AppColors.brand),
-          ),
-          const Spacer(),
-          Text(provider.s('cbu_rate'),
-              style: context.t.labelSmall?.copyWith(fontSize: 10.5)),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Hamyonlar bo'limi ──────────────────────────────────────────────────────────
-
-class _WalletsSection extends StatelessWidget {
-  final AppProvider provider;
-  const _WalletsSection({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _WalletCard(
-          provider: provider,
-          currency: Wallets.uzs,
-          title: "So'm",
-          gradient: context.c.balanceGradient,
         ),
-        const SizedBox(height: 12),
-        _WalletCard(
-          provider: provider,
-          currency: Wallets.usd,
-          title: 'Dollar',
-          gradient: const [Color(0xFF0B7285), Color(0xFF0B4F5E)],
+        _SquareButton(
+          icon: Icons.notifications_none_rounded,
+          dot: true,
+          onTap: () => _soon(context),
         ),
       ],
     );
   }
 }
 
-class _WalletCard extends StatelessWidget {
-  final AppProvider provider;
-  final String currency;
-  final String title;
-  final List<Color> gradient;
-
-  const _WalletCard({
-    required this.provider,
-    required this.currency,
-    required this.title,
-    required this.gradient,
-  });
+class _SquareButton extends StatelessWidget {
+  final IconData icon;
+  final bool dot;
+  final VoidCallback onTap;
+  const _SquareButton(
+      {required this.icon, this.dot = false, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final s = provider.s;
-    final total = provider.currencyBalance(currency);
-    final cash = provider.balanceOf(Wallets.cash, currency);
-    final card = provider.balanceOf(Wallets.card, currency);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: KColors.card,
+          borderRadius: BorderRadius.circular(rTile),
+          boxShadow: kSoftShadow,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(icon, size: 22, color: KColors.ink),
+            if (dot)
+              Positioned(
+                top: 12,
+                right: 13,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: KColors.danger,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: KColors.card, width: 1.5),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Balans hero kartasi ─────────────────────────────────────────────────────
+
+class _BalanceCard extends StatefulWidget {
+  final AppProvider provider;
+  const _BalanceCard({required this.provider});
+
+  @override
+  State<_BalanceCard> createState() => _BalanceCardState();
+}
+
+class _BalanceCardState extends State<_BalanceCard> {
+  bool _hidden = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.provider;
+    final total = p.currencyBalance('UZS');
+    final white82 = Colors.white.withValues(alpha: 0.82);
+
+    // Oylar bo'yicha xarajat o'zgarishi (o'tgan oyga nisbatan)
+    final months = p.last6MonthsData('UZS');
+    final thisExp = months[5]['expense'] as double;
+    final lastExp = months[4]['expense'] as double;
+    final double? momPct =
+        lastExp > 0 ? (thisExp - lastExp) / lastExp * 100 : null;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      height: 190,
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: gradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: AppShadows.brand(gradient.first),
+        gradient: kGradient,
+        borderRadius: BorderRadius.circular(rBalance),
+        boxShadow: kGreenShadow,
       ),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned(
-            right: -18,
-            top: -26,
-            child: Container(
-              width: 96,
-              height: 96,
+          Row(
+            children: [
+              Text('Umumiy balans',
+                  style: k(13, w: FontWeight.w500, c: white82)),
+              const Spacer(),
+              GestureDetector(
+                onTap: () => setState(() => _hidden = !_hidden),
+                child: Icon(
+                  _hidden
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 20,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _hidden ? '••• •••' : Money.plain(total, currency: 'UZS'),
+                    style: k(34, w: FontWeight.w700, c: Colors.white),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child:
+                    Text("so'm", style: k(15, w: FontWeight.w500, c: white82)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (momPct != null)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.06),
+                color: Colors.white.withValues(alpha: 0.18),
+                borderRadius: BorderRadius.circular(rCard),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    momPct >= 0
+                        ? Icons.north_east_rounded
+                        : Icons.south_east_rounded,
+                    size: 13,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text('${momPct.abs().toStringAsFixed(1)}%',
+                      style: k(12, w: FontWeight.w600, c: Colors.white)),
+                  const SizedBox(width: 5),
+                  Text("o'tgan oyga nisbatan",
+                      style: k(12,
+                          c: Colors.white.withValues(alpha: 0.85))),
+                ],
               ),
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          const Spacer(),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Row(
-                children: [
-                  Icon(Wallets.currencyIcon(currency),
-                      size: 15, color: Colors.white.withValues(alpha: 0.85)),
-                  const SizedBox(width: 7),
-                  Text(title,
-                      style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.85),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      Money.format(total, currency),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5),
-                    ),
-                  ),
-                ],
+              Text(
+                '••••  ••••  ••••  4821',
+                style: k(13,
+                    c: Colors.white.withValues(alpha: 0.55), ls: 1.5),
               ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _WalletMini(
-                      label: s('wallet_cash'),
-                      value: Money.format(cash, currency),
-                      icon: Wallets.placeIcon(Wallets.cash),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Container(
-                    width: 1,
-                    height: 26,
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _WalletMini(
-                      label: s('wallet_card'),
-                      value: Money.format(card, currency),
-                      icon: Wallets.placeIcon(Wallets.card),
-                    ),
-                  ),
-                ],
-              ),
+              const Spacer(),
+              const _MastercardMark(),
             ],
           ),
         ],
@@ -332,42 +269,71 @@ class _WalletCard extends StatelessWidget {
   }
 }
 
-class _WalletMini extends StatelessWidget {
-  final String label, value;
-  final IconData icon;
+class _MastercardMark extends StatelessWidget {
+  const _MastercardMark();
 
-  const _WalletMini({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 38,
+      height: 22,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF5A623),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 0,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.85),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Kirim / Chiqim stat kartalari ───────────────────────────────────────────
+
+class _StatRow extends StatelessWidget {
+  final AppProvider provider;
+  const _StatRow({required this.provider});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: Colors.white.withValues(alpha: 0.8)),
-        const SizedBox(width: 8),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 11)),
-              const SizedBox(height: 1),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(value,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700)),
-              ),
-            ],
+          child: _StatCard(
+            label: 'Kirim',
+            amount: provider.incomeThisMonth('UZS'),
+            icon: Icons.south_west_rounded,
+            color: KColors.primary,
+            bg: KColors.greenBg,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _StatCard(
+            label: 'Chiqim',
+            amount: provider.expenseThisMonth('UZS'),
+            icon: Icons.north_east_rounded,
+            color: KColors.danger,
+            bg: KColors.dangerBg,
           ),
         ),
       ],
@@ -375,66 +341,50 @@ class _WalletMini extends StatelessWidget {
   }
 }
 
-// ── Budget kartasi ──────────────────────────────────────────────────────────
-
-class _BudgetCard extends StatelessWidget {
-  final AppProvider provider;
-  const _BudgetCard({required this.provider});
+class _StatCard extends StatelessWidget {
+  final String label;
+  final double amount;
+  final IconData icon;
+  final Color color, bg;
+  const _StatCard({
+    required this.label,
+    required this.amount,
+    required this.icon,
+    required this.color,
+    required this.bg,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final s = provider.s;
-    final monthExpense = provider.expenseThisMonth(provider.currency);
-    final used = provider.monthlyBudget > 0
-        ? (monthExpense / provider.monthlyBudget).clamp(0.0, 1.0)
-        : 0.0;
-    final over = used >= 0.85;
-    final barColor = over ? AppColors.expense : AppColors.brand;
-
-    return AppCard(
+    return Container(
+      height: 100,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: KColors.card,
+        borderRadius: BorderRadius.circular(rCard),
+        boxShadow: kSoftShadow,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(Icons.pie_chart_outline_rounded,
-                      size: 18, color: context.c.textSecondary),
-                  const SizedBox(width: 8),
-                  Text(s('monthly_budget'), style: context.t.titleSmall),
-                ],
-              ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
-                decoration: BoxDecoration(
-                  color: barColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppRadius.pill),
-                ),
-                child: Text('${(used * 100).toStringAsFixed(0)}%',
-                    style: TextStyle(
-                        color: barColor,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12.5)),
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                child: Icon(icon, size: 17, color: color),
               ),
+              const SizedBox(width: 8),
+              Text(label, style: k(12, w: FontWeight.w500, c: KColors.sub)),
             ],
           ),
-          const SizedBox(height: 14),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: used,
-              minHeight: 9,
-              backgroundColor: context.c.surfaceAlt,
-              valueColor: AlwaysStoppedAnimation<Color>(barColor),
-            ),
-          ),
-          const SizedBox(height: 9),
-          Text(
-            '${Money.format(monthExpense, provider.currency)}  /  ${Money.format(provider.monthlyBudget, provider.currency)}',
-            style: context.t.bodySmall,
+          const Spacer(),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(Money.plain(amount, currency: 'UZS'),
+                style: k(17, w: FontWeight.w600)),
           ),
         ],
       ),
@@ -442,52 +392,250 @@ class _BudgetCard extends StatelessWidget {
   }
 }
 
-// ── AI tavsiya kartasi ────────────────────────────────────────────────────────
+// ── Tezkor amallar ──────────────────────────────────────────────────────────
 
-class _InsightCard extends StatelessWidget {
-  final AiInsight insight;
-  const _InsightCard({required this.insight});
+class _QuickActions extends StatelessWidget {
+  final AppProvider provider;
+  const _QuickActions({required this.provider});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: insight.color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: insight.color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _QuickAction(
+          label: "O'tkazma",
+          icon: Icons.swap_horiz_rounded,
+          color: KColors.primary,
+          onTap: () => showTransferModal(context, provider),
+        ),
+        _QuickAction(
+          label: "To'lov",
+          icon: Icons.bolt_rounded,
+          color: KColors.orange,
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const AddTransactionScreen(initialType: 'expense'),
+          )),
+        ),
+        _QuickAction(
+          label: 'Skaner',
+          icon: Icons.qr_code_scanner_rounded,
+          color: KColors.blue,
+          onTap: () => _soon(context),
+        ),
+        _QuickAction(
+          label: 'Maqsad',
+          icon: Icons.flag_rounded,
+          color: KColors.purple,
+          onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const GoalsScreen())),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickAction({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 38,
-            height: 38,
-            alignment: Alignment.center,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: insight.color.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(11),
+              color: KColors.card,
+              borderRadius: BorderRadius.circular(rCard),
+              boxShadow: kSoftShadow,
             ),
-            child: Icon(insight.icon, size: 20, color: insight.color),
+            child: Icon(icon, size: 24, color: color),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(insight.title,
-                    style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13.5,
-                        color: insight.color)),
-                const SizedBox(height: 3),
-                Text(insight.body, style: context.t.bodySmall),
-              ],
-            ),
-          ),
+          const SizedBox(height: 8),
+          Text(label, style: k(11, w: FontWeight.w500, c: KColors.sub)),
         ],
       ),
     );
   }
+}
+
+// ── So'nggi amallar ───────────────────────────────────────────────────────────
+
+class _RecentSection extends StatelessWidget {
+  final AppProvider provider;
+  const _RecentSection({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = provider.transactions.take(3).toList();
+    final s = provider.s;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text("So'nggi amallar", style: k(16, w: FontWeight.w600)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _soon(context),
+              child: Text('Barchasi',
+                  style: k(13, w: FontWeight.w600, c: KColors.primary)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Container(
+          decoration: BoxDecoration(
+            color: KColors.card,
+            borderRadius: BorderRadius.circular(rCardLg),
+            boxShadow: kSoftShadow,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: recent.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  child: Center(
+                    child: Text("Hali amallar yo'q",
+                        style: k(13.5, c: KColors.mut)),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (int i = 0; i < recent.length; i++) ...[
+                      _TxRow(
+                        tx: recent[i],
+                        strings: s,
+                        onTap: () {
+                          if (!recent[i].isMovement) {
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (_) =>
+                                  AddTransactionScreen(existing: recent[i]),
+                            ));
+                          }
+                        },
+                      ),
+                      if (i != recent.length - 1)
+                        const Divider(
+                            height: 1, thickness: 1, color: KColors.line),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TxRow extends StatelessWidget {
+  final TransactionModel tx;
+  final AppStrings strings;
+  final VoidCallback onTap;
+  const _TxRow(
+      {required this.tx, required this.strings, required this.onTap});
+
+  String _dateLabel(DateTime date) {
+    final now = DateTime.now();
+    if (date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day) {
+      return 'Bugun';
+    }
+    final y = now.subtract(const Duration(days: 1));
+    if (date.year == y.year && date.month == y.month && date.day == y.day) {
+      return 'Kecha';
+    }
+    return DateFmt.short(date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = tx;
+    final isIncome = t.type == 'income';
+
+    final IconData icon;
+    final Color color;
+    final String title;
+    final String meta;
+    final String amountStr;
+    final Color amountColor;
+
+    if (t.isMovement) {
+      icon = t.type == 'exchange'
+          ? Icons.currency_exchange_rounded
+          : Icons.swap_horiz_rounded;
+      color = KColors.purple;
+      title = strings(t.type);
+      meta = _dateLabel(t.date);
+      amountStr = Money.format(t.amount, t.currency);
+      amountColor = KColors.sub;
+    } else {
+      icon = CategoryMeta.icon(t.category);
+      color = CategoryMeta.color(t.category);
+      title = t.note.isNotEmpty ? t.note : strings.cat(t.category);
+      meta = '${strings.cat(t.category)} · ${_dateLabel(t.date)}';
+      final signed = isIncome ? t.amount : -t.amount;
+      amountStr = Money.format(signed, t.currency, showSign: true);
+      amountColor = isIncome ? KColors.primary : KColors.ink;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 19, color: color),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: k(14, w: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: k(11.5, c: KColors.mut)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(amountStr, style: k(15, w: FontWeight.w600, c: amountColor)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _soon(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Tez orada')),
+  );
 }

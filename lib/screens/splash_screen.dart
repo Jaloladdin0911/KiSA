@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/kisa_logo.dart';
@@ -99,7 +100,11 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     await _exitCtrl.forward();
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed('/home');
+    final prefs = await SharedPreferences.getInstance();
+    final seen = prefs.getBool('seen_onboarding') ?? false;
+    if (!mounted) return;
+    Navigator.of(context)
+        .pushReplacementNamed(seen ? '/home' : '/onboarding');
   }
 
   @override

@@ -1,69 +1,103 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
 import '../models/goal_model.dart';
 import '../services/app_provider.dart';
-import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/categories.dart';
-import '../widgets/ui_kit.dart';
+import '../widgets/kit.dart';
 
+/// Maqsadlar — KISA_DESIGN_SPEC.md, Section 9. Push qilingan ekran (back button).
 class GoalsScreen extends StatelessWidget {
   const GoalsScreen({super.key});
+
+  static const _palette = [
+    KColors.blue,
+    KColors.orange,
+    KColors.primary,
+    KColors.purple,
+    KColors.pink,
+    KColors.indigo,
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
-        final s = provider.s;
+        final goals = provider.goals;
+        final totalSaved =
+            goals.fold(0.0, (s, g) => s + g.currentAmount);
+        final active = goals.where((g) => !g.isCompleted).length;
+
         return Scaffold(
+          backgroundColor: KColors.bg,
           body: SafeArea(
             bottom: false,
             child: Column(
               children: [
-                PageHeader(
-                  title: s('goals'),
-                  actions: [
-                    CircleAction(
-                      icon: Icons.add_rounded,
-                      color: AppColors.brand,
-                      onTap: () => _showAddModal(context, provider),
-                    ),
-                  ],
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Row(
+                    children: [
+                      const KBackButton(),
+                      Expanded(
+                        child: Center(
+                          child: Text('Maqsadlar',
+                              style: k(17, w: FontWeight.w600)),
+                        ),
+                      ),
+                      KAddButton(onTap: () => _showAddModal(context, provider)),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 16),
+
                 Expanded(
-                  child: provider.goals.isEmpty
-                      ? EmptyState(
-                          icon: Icons.flag_rounded,
-                          title: s('no_goals'),
-                          subtitle: s('add_financial_goal'),
-                          action: ElevatedButton.icon(
-                            onPressed: () => _showAddModal(context, provider),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(0, 50),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 22),
-                            ),
-                            icon: const Icon(Icons.add_rounded, size: 20),
-                            label: Text(s('add_goal')),
+                  child: ListView(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    children: [
+                      // Summary (dark)
+                      Padding(
+                        padding: kPad,
+                        child: _Summary(total: totalSaved, active: active),
+                      ),
+                      const SizedBox(height: 22),
+                      Padding(
+                        padding: kPad,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('Faol maqsadlar',
+                              style: k(15, w: FontWeight.w600)),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (goals.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 40),
+                          child: Center(
+                            child: Text("Hali maqsad yo'q",
+                                style: k(14, c: KColors.mut)),
                           ),
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(
-                              AppSpacing.screen, 0, AppSpacing.screen, 24),
-                          itemCount: provider.goals.length,
-                          itemBuilder: (context, i) {
-                            final g = provider.goals[i];
-                            return _GoalCard(
-                              goal: g,
-                              currency: provider.currency,
-                              strings: s,
-                              onDelete: () => provider.deleteGoal(g.id),
-                              onAdd: () =>
-                                  _showAddMoneyModal(context, provider, g),
-                            );
-                          },
-                        ),
+                      else
+                        ...goals.asMap().entries.map((e) {
+                          final color = _palette[e.key % _palette.length];
+                          return Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                            child: _GoalCard(
+                              goal: e.value,
+                              color: color,
+                              onAddMoney: () =>
+                                  _addMoney(context, provider, e.value),
+                              onDelete: () => provider.deleteGoal(e.value.id),
+                            ),
+                          );
+                        }),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -73,8 +107,8 @@ class GoalsScreen extends StatelessWidget {
     );
   }
 
+  // ── Maqsad qo'shish ───────────────────────────────────────────────────────
   void _showAddModal(BuildContext context, AppProvider provider) {
-    final s = provider.s;
     final titleCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     DateTime deadline = DateTime.now().add(const Duration(days: 90));
@@ -84,86 +118,78 @@ class GoalsScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: KColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) {
-        final c = ctx.c;
         return StatefulBuilder(
-          builder: (context, set) => Padding(
+          builder: (context, setM) => Padding(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: AppSpacing.xl,
-              right: AppSpacing.xl,
+              left: 20,
+              right: 20,
             ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SheetHandle(),
-                  Text(s('new_goal'), style: context.t.titleLarge),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                          color: KColors.line,
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                   const SizedBox(height: 18),
+                  Text('Yangi maqsad', style: k(18, w: FontWeight.w700)),
+                  const SizedBox(height: 16),
                   SizedBox(
-                    height: 52,
-                    child: ListView.builder(
+                    height: 50,
+                    child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: icons.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
                       itemBuilder: (_, i) {
-                        final selected = icon == icons[i];
+                        final sel = icon == icons[i];
                         return GestureDetector(
-                          onTap: () => set(() => icon = icons[i]),
+                          onTap: () => setM(() => icon = icons[i]),
                           child: Container(
                             width: 48,
                             height: 48,
-                            margin: const EdgeInsets.only(right: 9),
                             decoration: BoxDecoration(
-                              color: selected
-                                  ? AppColors.brand.withValues(alpha: 0.14)
-                                  : c.surfaceAlt,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.md),
+                              color: sel
+                                  ? KColors.primary.withValues(alpha: 0.14)
+                                  : KColors.bg,
+                              borderRadius: BorderRadius.circular(14),
                               border: Border.all(
-                                color: selected
-                                    ? AppColors.brand
-                                    : Colors.transparent,
-                                width: 1.4,
-                              ),
+                                  color: sel
+                                      ? KColors.primary
+                                      : Colors.transparent,
+                                  width: 1.5),
                             ),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              GoalIcons.data(icons[i]),
-                              size: 23,
-                              color: selected
-                                  ? AppColors.brand
-                                  : c.textSecondary,
-                            ),
+                            child: Icon(GoalIcons.data(icons[i]),
+                                size: 22,
+                                color: sel ? KColors.primary : KColors.sub),
                           ),
                         );
                       },
                     ),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: titleCtrl,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      labelText: s('goal_name'),
-                      prefixIcon: const Icon(Icons.edit_outlined),
-                    ),
-                  ),
+                  _Field(controller: titleCtrl, label: 'Maqsad nomi'),
                   const SizedBox(height: 12),
-                  TextField(
-                    controller: amountCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: Money.amountFormatters,
-                    decoration: InputDecoration(
-                      labelText: s('goal_amount'),
-                      suffixText: provider.currency,
-                      prefixIcon: const Icon(Icons.flag_outlined),
-                    ),
-                  ),
+                  _Field(
+                      controller: amountCtrl,
+                      label: 'Maqsad summasi',
+                      number: true,
+                      suffix: "so'm"),
                   const SizedBox(height: 12),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  GestureDetector(
                     onTap: () async {
                       final p = await showDatePicker(
                         context: context,
@@ -172,29 +198,29 @@ class GoalsScreen extends StatelessWidget {
                         lastDate:
                             DateTime.now().add(const Duration(days: 3650)),
                       );
-                      if (p != null) set(() => deadline = p);
+                      if (p != null) setM(() => deadline = p);
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 15),
                       decoration: BoxDecoration(
-                        color: c.surfaceAlt,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
+                          color: KColors.bg,
+                          borderRadius: BorderRadius.circular(rTile)),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today_rounded,
-                              size: 18, color: c.textSecondary),
+                          const Icon(Icons.calendar_today_rounded,
+                              size: 18, color: KColors.sub),
                           const SizedBox(width: 12),
-                          Text('${s('deadline_prefix')}${DateFmt.short(deadline)}',
-                              style: context.t.bodyLarge),
+                          Text('Muddat: ${DateFmt.short(deadline)}',
+                              style: k(14)),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  ElevatedButton(
-                    onPressed: () {
+                  const SizedBox(height: 20),
+                  _PrimaryButton(
+                    label: 'Yaratish',
+                    onTap: () {
                       final amount = Money.parse(amountCtrl.text);
                       if (titleCtrl.text.trim().isEmpty ||
                           amount == null ||
@@ -212,12 +238,11 @@ class GoalsScreen extends StatelessWidget {
                         deadline: deadline,
                         icon: icon,
                       ));
-                      Navigator.pop(context);
+                      Navigator.pop(ctx);
                     },
-                    child: Text(s('create')),
                   ),
                   SizedBox(
-                      height: MediaQuery.of(context).padding.bottom + 18),
+                      height: MediaQuery.of(context).padding.bottom + 16),
                 ],
               ),
             ),
@@ -227,53 +252,100 @@ class GoalsScreen extends StatelessWidget {
     );
   }
 
-  void _showAddMoneyModal(
-      BuildContext context, AppProvider provider, GoalModel goal) {
-    final s = provider.s;
+  void _addMoney(BuildContext context, AppProvider provider, GoalModel goal) {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(GoalIcons.data(goal.icon),
-                color: AppColors.brand, size: 22),
-            const SizedBox(width: 10),
-            Expanded(
-                child: Text(goal.title,
-                    maxLines: 1, overflow: TextOverflow.ellipsis)),
-          ],
-        ),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: Money.amountFormatters,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: s('amount'),
-            suffixText: provider.currency,
-          ),
-        ),
+        backgroundColor: KColors.card,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+        title: Text(goal.title, style: k(16, w: FontWeight.w700)),
+        content: _Field(controller: ctrl, label: 'Summa', number: true, suffix: "so'm"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(s('cancel'),
-                style: TextStyle(color: ctx.c.textSecondary)),
+            child: Text('Bekor', style: k(14, c: KColors.sub)),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-                minimumSize: const Size(0, 44),
-                padding: const EdgeInsets.symmetric(horizontal: 20)),
-            onPressed: () {
+          _PrimaryButton(
+            label: "Qo'shish",
+            compact: true,
+            onTap: () {
               final amount = Money.parse(ctrl.text);
               if (amount == null || amount <= 0) return;
               provider.updateGoal(goal.copyWith(
-                currentAmount: (goal.currentAmount + amount)
-                    .clamp(0, goal.targetAmount),
+                currentAmount:
+                    (goal.currentAmount + amount).clamp(0, goal.targetAmount),
               ));
               Navigator.pop(ctx);
             },
-            child: Text(s('add_money')),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Summary extends StatelessWidget {
+  final double total;
+  final int active;
+  const _Summary({required this.total, required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: KColors.dark,
+        borderRadius: BorderRadius.circular(rCardLg),
+        boxShadow: kCardShadow,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Jami jamg'arma",
+                    style: k(13, w: FontWeight.w500, c: const Color(0xFF9AA0AE))),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(Money.plain(total, currency: 'UZS'),
+                            style: k(26, w: FontWeight.w700, c: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text("so'm",
+                          style: k(13,
+                              w: FontWeight.w500,
+                              c: const Color(0xFF9AA0AE))),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('$active ta maqsad sari yo\'lda',
+                    style: k(12,
+                        w: FontWeight.w500, c: const Color(0xFF34D399))),
+              ],
+            ),
+          ),
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.track_changes_rounded,
+                color: Color(0xFF34D399), size: 24),
           ),
         ],
       ),
@@ -283,145 +355,146 @@ class GoalsScreen extends StatelessWidget {
 
 class _GoalCard extends StatelessWidget {
   final GoalModel goal;
-  final String currency;
-  final AppStrings strings;
-  final VoidCallback onDelete, onAdd;
-
+  final Color color;
+  final VoidCallback onAddMoney, onDelete;
   const _GoalCard({
     required this.goal,
-    required this.currency,
-    required this.strings,
+    required this.color,
+    required this.onAddMoney,
     required this.onDelete,
-    required this.onAdd,
   });
 
   @override
   Widget build(BuildContext context) {
-    final s = strings;
-    final c = context.c;
-    final done = goal.isCompleted;
-    final color = done ? AppColors.brand : AppColors.info;
-
+    final pct = goal.progress;
     return Dismissible(
       key: Key(goal.id),
       direction: DismissDirection.endToStart,
       onDismissed: (_) => onDelete(),
       background: Container(
         alignment: Alignment.centerRight,
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.only(right: 22),
+        padding: const EdgeInsets.only(right: 24),
         decoration: BoxDecoration(
-          color: AppColors.expense.withValues(alpha: 0.14),
-          borderRadius: BorderRadius.circular(AppRadius.lg),
+          color: KColors.dangerBg,
+          borderRadius: BorderRadius.circular(rCardLg),
         ),
-        child:
-            const Icon(Icons.delete_outline_rounded, color: AppColors.expense),
+        child: const Icon(Icons.delete_outline_rounded, color: KColors.danger),
       ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
+      child: KCard(
+        radius: rCardLg,
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: c.surface,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          border: Border.all(
-            color: done ? AppColors.brand.withValues(alpha: 0.4) : c.border,
-          ),
-          boxShadow: AppShadows.card(context.isDark),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        onTap: onAddMoney,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(13),
-                  ),
-                  child: Icon(GoalIcons.data(goal.icon),
-                      color: color, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            CircularPercentIndicator(
+              radius: 38,
+              lineWidth: 6,
+              percent: pct.clamp(0.0, 1.0),
+              backgroundColor: KColors.line,
+              progressColor: color,
+              circularStrokeCap: CircularStrokeCap.round,
+              center: Icon(GoalIcons.data(goal.icon), color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(goal.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: k(15, w: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(goal.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.t.titleSmall),
-                      const SizedBox(height: 2),
-                      Text(
-                        done
-                            ? s('completed_goal')
-                            : goal.daysLeft > 0
-                                ? '${goal.daysLeft} ${s('days_left')}'
-                                : s('overdue'),
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w500,
-                          color: done
-                              ? AppColors.brand
-                              : goal.daysLeft <= 0
-                                  ? AppColors.expense
-                                  : c.textSecondary,
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                              Money.plain(goal.currentAmount, currency: 'UZS'),
+                              style: k(18, w: FontWeight.w700)),
                         ),
                       ),
+                      const SizedBox(width: 4),
+                      Text("so'm", style: k(12, c: KColors.mut)),
                     ],
                   ),
-                ),
-                if (!done)
-                  Material(
-                    color: AppColors.brand.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                    child: InkWell(
-                      onTap: onAdd,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 9),
-                        child: Icon(Icons.add_rounded,
-                            color: AppColors.brand, size: 20),
-                      ),
-                    ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${(pct * 100).round()}% · ${Money.plain(goal.targetAmount, currency: 'UZS')} so\'m maqsad',
+                    style: k(11.5, w: FontWeight.w500, c: KColors.mut),
                   ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(Money.format(goal.currentAmount, currency),
-                    style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: color)),
-                Text(Money.format(goal.targetAmount, currency),
-                    style: context.t.bodySmall),
-              ],
-            ),
-            const SizedBox(height: 9),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: goal.progress,
-                minHeight: 9,
-                backgroundColor: c.surfaceAlt,
-                valueColor: AlwaysStoppedAnimation<Color>(color),
+                  const SizedBox(height: 8),
+                  KProgressBar(pct: pct, color: color, height: 7),
+                ],
               ),
-            ),
-            const SizedBox(height: 7),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                  '${(goal.progress * 100).toStringAsFixed(0)}${s('completed_pct')}',
-                  style: context.t.bodySmall),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Kichik yordamchilar ──────────────────────────────────────────────────────
+
+class _Field extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final bool number;
+  final String? suffix;
+  const _Field({
+    required this.controller,
+    required this.label,
+    this.number = false,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType:
+          number ? const TextInputType.numberWithOptions(decimal: true) : null,
+      inputFormatters: number ? Money.amountFormatters : null,
+      style: k(15),
+      decoration: InputDecoration(
+        labelText: label,
+        suffixText: suffix,
+        filled: true,
+        fillColor: KColors.bg,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(rTile),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool compact;
+  const _PrimaryButton(
+      {required this.label, required this.onTap, this.compact = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: compact ? null : double.infinity,
+        height: compact ? 44 : 54,
+        padding: compact ? const EdgeInsets.symmetric(horizontal: 22) : null,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: kGradient,
+          borderRadius: BorderRadius.circular(rBtn),
+        ),
+        child: Text(label, style: k(15, w: FontWeight.w600, c: Colors.white)),
       ),
     );
   }
