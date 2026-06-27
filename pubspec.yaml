@@ -2,7 +2,7 @@ name: kisa
 description: KiSA - Shaxsiy moliyaviy boshqaruv ilovasi (to'liq offline, lokal)
 
 publish_to: 'none'
-version: 2.0.0+4
+version: 2.0.0+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -33,6 +33,19 @@ dependencies:
 
   # Tashqi havolalarni ochish (maxfiylik siyosati)
   url_launcher: ^6.3.0
+
+  # Ma'lumot eksport/zaxira (CSV ulashish)
+  share_plus: ^9.0.0
+  path_provider: ^2.1.4
+
+  # Xavfsizlik (PIN hash + biometrik qulf)
+  crypto: ^3.0.5
+  local_auth: ^2.3.0
+
+  # Kunlik eslatma (lokal bildirishnoma)
+  flutter_local_notifications: ^17.2.3
+  timezone: ^0.9.4
+  flutter_timezone: ^1.0.8
 
 dev_dependencies:
   flutter_test:

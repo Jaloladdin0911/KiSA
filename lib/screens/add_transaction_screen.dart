@@ -4,6 +4,7 @@ import '../models/transaction_model.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/categories.dart';
+import '../utils/formatters.dart';
 import '../widgets/kit.dart';
 
 /// Amal qo'shish / tahrirlash — KISA_DESIGN_SPEC.md, Section 7.
@@ -23,6 +24,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String _amount = '';
   late String _category;
   late String _place; // 'cash' | 'card'
+  late String _currency; // 'UZS' | 'USD'
   late DateTime _date;
 
   static const _months = [
@@ -38,6 +40,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (_type != 'income' && _type != 'expense') _type = 'expense';
     _amount = e != null ? _trimAmount(e.amount) : '';
     _place = e?.place ?? 'card';
+    _currency = e?.currency ?? 'UZS';
     _date = e?.date ?? DateTime.now();
     final keys = _catKeys();
     _category = (e != null && keys.contains(e.category)) ? e.category : keys.first;
@@ -97,7 +100,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       date: _date,
       note: widget.existing?.note ?? '',
       place: _place,
-      currency: 'UZS',
+      currency: _currency,
     );
     if (widget.existing != null) {
       provider.updateTransaction(tx);
@@ -149,12 +152,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     child: Container(
                       width: 40,
                       height: 40,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: KColors.card,
                         shape: BoxShape.circle,
                         boxShadow: kSoftShadow,
                       ),
-                      child: const Icon(Icons.close_rounded,
+                      child: Icon(Icons.close_rounded,
                           size: 22, color: KColors.ink),
                     ),
                   ),
@@ -202,8 +205,42 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text("so'm", style: k(14, c: KColors.mut)),
+                        const SizedBox(height: 8),
+                        // Valyuta tanlash (so'm / $)
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final cur in const ['UZS', 'USD'])
+                              GestureDetector(
+                                onTap: () => setState(() => _currency = cur),
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                      horizontal: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _currency == cur
+                                        ? _accent.withValues(alpha: 0.12)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color: _currency == cur
+                                            ? _accent
+                                            : KColors.line,
+                                        width: 1.2),
+                                  ),
+                                  child: Text(
+                                    cur == 'USD' ? '\$' : "so'm",
+                                    style: k(13,
+                                        w: FontWeight.w600,
+                                        c: _currency == cur
+                                            ? _accent
+                                            : KColors.mut),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -251,7 +288,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             onTap: () => setState(
                                 () => _place = _place == 'card' ? 'cash' : 'card'),
                           ),
-                          const Divider(
+                          Divider(
                               height: 1, thickness: 1, color: KColors.line),
                           _DetailRow(
                             icon: Icons.calendar_today_rounded,
@@ -425,11 +462,181 @@ class _DetailRow extends StatelessWidget {
             const Spacer(),
             Text(value, style: k(13, c: KColors.sub)),
             const SizedBox(width: 6),
-            const Icon(Icons.chevron_right_rounded,
+            Icon(Icons.chevron_right_rounded,
                 size: 20, color: KColors.mut),
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Hamyonlar orasi o'tkazma (Naqd ↔ Karta) ───────────────────────────────────
+
+void showTransferSheet(BuildContext context, AppProvider provider) {
+  String from = 'cash';
+  String to = 'card';
+  final amountCtrl = TextEditingController();
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: KColors.card,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setM) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                      color: KColors.line,
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text("Hamyonlar orasi o'tkazma", style: k(18, w: FontWeight.w700)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: amountCtrl,
+                autofocus: true,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: Money.amountFormatters,
+                style: k(16),
+                decoration: InputDecoration(
+                  labelText: 'Summa',
+                  suffixText: "so'm",
+                  filled: true,
+                  fillColor: KColors.bg,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(rTile),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Qayerdan', style: k(13, w: FontWeight.w600, c: KColors.sub)),
+              const SizedBox(height: 8),
+              _PlaceSeg(
+                value: from,
+                onChanged: (v) => setM(() {
+                  from = v;
+                  if (to == from) to = v == 'cash' ? 'card' : 'cash';
+                }),
+              ),
+              const SizedBox(height: 12),
+              Text('Qayerga', style: k(13, w: FontWeight.w600, c: KColors.sub)),
+              const SizedBox(height: 8),
+              _PlaceSeg(
+                value: to,
+                onChanged: (v) => setM(() {
+                  to = v;
+                  if (from == to) from = v == 'cash' ? 'card' : 'cash';
+                }),
+              ),
+              const SizedBox(height: 20),
+              GestureDetector(
+                onTap: () {
+                  final amount = Money.parse(amountCtrl.text);
+                  if (amount == null || amount <= 0 || from == to) return;
+                  provider.addTransaction(TransactionModel(
+                    id: DateTime.now().millisecondsSinceEpoch.toString(),
+                    userId: provider.userId,
+                    type: 'transfer',
+                    amount: amount,
+                    category: 'transfer',
+                    date: DateTime.now(),
+                    note: '',
+                    place: from,
+                    currency: 'UZS',
+                    toPlace: to,
+                    toCurrency: 'UZS',
+                    toAmount: amount,
+                  ));
+                  Navigator.pop(ctx);
+                },
+                child: Container(
+                  height: 54,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: kGradient,
+                    borderRadius: BorderRadius.circular(rBtn),
+                  ),
+                  child: Text('Saqlash',
+                      style: k(16, w: FontWeight.w600, c: Colors.white)),
+                ),
+              ),
+              SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _PlaceSeg extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _PlaceSeg({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget seg(String v, String label, IconData icon) {
+      final active = v == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => onChanged(v),
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: active
+                  ? KColors.primary.withValues(alpha: 0.13)
+                  : KColors.bg,
+              borderRadius: BorderRadius.circular(rTile),
+              border: Border.all(
+                  color: active ? KColors.primary : Colors.transparent,
+                  width: 1.4),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon,
+                    size: 16,
+                    color: active ? KColors.primary : KColors.sub),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: k(13.5,
+                        w: active ? FontWeight.w600 : FontWeight.w500,
+                        c: active ? KColors.primary : KColors.sub)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        seg('cash', 'Naqd', Icons.payments_rounded),
+        seg('card', 'Karta', Icons.credit_card_rounded),
+      ],
     );
   }
 }
@@ -463,7 +670,7 @@ class _Keypad extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Center(
               child: key == '⌫'
-                  ? const Icon(Icons.backspace_outlined,
+                  ? Icon(Icons.backspace_outlined,
                       size: 24, color: KColors.ink)
                   : Text(key, style: k(26, w: FontWeight.w500)),
             ),

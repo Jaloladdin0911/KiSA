@@ -283,16 +283,26 @@ extension ThemeContext on BuildContext {
 class KColors {
   KColors._();
 
-  // Surfaces
-  static const bg = Color(0xFFEEF1F6); // ilova foni (och kulrang)
-  static const card = Color(0xFFFFFFFF); // oq kartalar
-  static const dark = Color(0xFF14161F); // quyuq karta (summary)
+  /// Joriy tema (main.dart'da provider bilan ulanadi). Getterlar shunga qarab
+  /// yorug'/quyuq rang qaytaradi — butun ilova avtomatik moslashadi.
+  static bool isDark = false;
 
-  // Text
-  static const ink = Color(0xFF0F172A); // asosiy
-  static const sub = Color(0xFF6B7280); // ikkilamchi
-  static const mut = Color(0xFF9AA1AD); // uchlamchi / hint
-  static const line = Color(0xFFEDEFF3); // ajratuvchi / track
+  // Surfaces (temaga bog'liq)
+  static Color get bg =>
+      isDark ? const Color(0xFF0E1116) : const Color(0xFFEEF1F6);
+  static Color get card =>
+      isDark ? const Color(0xFF181B22) : const Color(0xFFFFFFFF);
+  static const dark = Color(0xFF14161F); // quyuq summary karta (har ikkalada)
+
+  // Text (temaga bog'liq)
+  static Color get ink =>
+      isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+  static Color get sub =>
+      isDark ? const Color(0xFF98A1B0) : const Color(0xFF6B7280);
+  static Color get mut =>
+      isDark ? const Color(0xFF6B7480) : const Color(0xFF9AA1AD);
+  static Color get line =>
+      isDark ? const Color(0xFF262A33) : const Color(0xFFEDEFF3);
 
   // KiSA brend
   static const primary = Color(0xFF1C9D67); // yashil aksent
@@ -329,14 +339,14 @@ const kGradient = LinearGradient(
 TextStyle k(
   double size, {
   FontWeight w = FontWeight.w400,
-  Color c = KColors.ink,
+  Color? c,
   double? ls,
   double? height,
 }) =>
     GoogleFonts.inter(
       fontSize: size,
       fontWeight: w,
-      color: c,
+      color: c ?? KColors.ink,
       letterSpacing: ls,
       height: height,
     );

@@ -6,6 +6,7 @@ import 'services/local_database.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'screens/lock_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/statistics_screen.dart';
 import 'screens/budget_screen.dart';
@@ -32,23 +33,32 @@ class KisaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
-      builder: (context, provider, _) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'KiSA',
-        theme: ThemeData(
-          scaffoldBackgroundColor: KColors.bg,
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: KColors.primary,
-            primary: KColors.primary,
+      builder: (context, provider, _) {
+        // Joriy temani global tokenga uzatamiz — butun ilova avtomatik moslashadi
+        KColors.isDark = provider.isDarkMode;
+        final brightness =
+            provider.isDarkMode ? Brightness.dark : Brightness.light;
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'KiSA',
+          theme: ThemeData(
+            brightness: brightness,
+            scaffoldBackgroundColor: KColors.bg,
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: KColors.primary,
+              primary: KColors.primary,
+              brightness: brightness,
+            ),
           ),
-        ),
-        home: const SplashScreen(),
-        routes: {
-          '/home': (_) => const MainNavigator(),
-          '/onboarding': (_) => const OnboardingScreen(),
-        },
-      ),
+          home: const SplashScreen(),
+          routes: {
+            '/home': (_) => const MainNavigator(),
+            '/onboarding': (_) => const OnboardingScreen(),
+            '/lock': (_) => const LockScreen(),
+          },
+        );
+      },
     );
   }
 }
@@ -75,10 +85,12 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   Widget build(BuildContext context) {
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness:
+            KColors.isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            KColors.isDark ? Brightness.dark : Brightness.light,
       ),
       child: Scaffold(
         backgroundColor: KColors.bg,
@@ -175,9 +187,9 @@ class _KisaNavBar extends StatelessWidget {
     }
 
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: KColors.card,
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
               color: Color(0x0D0F172A), offset: Offset(0, -6), blurRadius: 16),
         ],

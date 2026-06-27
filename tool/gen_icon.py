@@ -9,10 +9,10 @@ ICON_DIR = os.path.join(ROOT, "assets", "icon")
 FONT_DIR = os.path.join(ROOT, "assets", "fonts")
 SIZE = 1024
 
-# Brend gradient ranglari (app_theme.dart bilan mos)
-TOP_LEFT = (11, 114, 133)       # #0B7285 (teal-ko'k)
-BOTTOM_RIGHT = (18, 184, 134)   # #12B886 (yashil)
-BRAND = (9, 146, 104)           # #099268
+# Brend gradient ranglari (app_theme.dart kGradient bilan mos)
+TOP_LEFT = (21, 115, 127)       # #15737F (teal, past-chap)
+BOTTOM_RIGHT = (47, 161, 105)   # #2FA169 (yashil, yuqori-o'ng)
+BRAND = (28, 157, 103)          # #1C9D67
 
 
 def gradient(size, c1, c2):

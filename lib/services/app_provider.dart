@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
@@ -5,6 +7,7 @@ import '../models/goal_model.dart';
 import '../l10n/app_strings.dart';
 import 'local_database.dart';
 import 'rate_service.dart';
+import 'notification_service.dart';
 
 /// Butun ilova holati — to'liq lokal (offline). Ma'lumotlar qurilmada Hive'da
 /// saqlanadi, internetga (Firebase) bog'liq emas. Faqat valyuta kursi onlayn
@@ -20,6 +23,13 @@ class AppProvider extends ChangeNotifier {
   String _currency = 'UZS';
   bool _isDarkMode = false;
   double _monthlyBudget = 0.0;
+  Map<String, double> _categoryBudgets = {};
+  bool _pinEnabled = false;
+  bool _biometricEnabled = false;
+  String? _pinHash;
+  bool _notificationsEnabled = false;
+  int _reminderHour = 20;
+  int _reminderMinute = 0;
   bool _isLoading = true;
   String _language = 'uz';
   String _userName = 'Foydalanuvchi';
@@ -31,6 +41,14 @@ class AppProvider extends ChangeNotifier {
   String get currency => _currency;
   bool get isDarkMode => _isDarkMode;
   double get monthlyBudget => _monthlyBudget;
+  Map<String, double> get categoryBudgets => _categoryBudgets;
+  double get totalCategoryBudget =>
+      _categoryBudgets.values.fold(0.0, (a, b) => a + b);
+  bool get pinEnabled => _pinEnabled;
+  bool get biometricEnabled => _biometricEnabled;
+  bool get notificationsEnabled => _notificationsEnabled;
+  TimeOfDay get reminderTime =>
+      TimeOfDay(hour: _reminderHour, minute: _reminderMinute);
   bool get isLoading => _isLoading;
   String get language => _language;
   AppStrings get s => AppStrings(_language);
@@ -135,6 +153,23 @@ class AppProvider extends ChangeNotifier {
     _currency = prefs.getString('currency') ?? 'UZS';
     _isDarkMode = prefs.getBool('dark_mode') ?? false;
     _monthlyBudget = prefs.getDouble('monthly_budget') ?? 0.0;
+    final cb = prefs.getString('category_budgets');
+    if (cb != null) {
+      try {
+        final m = jsonDecode(cb) as Map<String, dynamic>;
+        _categoryBudgets =
+            m.map((k, v) => MapEntry(k, (v as num).toDouble()));
+      } catch (_) {}
+    }
+    _pinEnabled = prefs.getBool('pin_enabled') ?? false;
+    _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
+    _pinHash = prefs.getString('pin_hash');
+    _notificationsEnabled = prefs.getBool('notifications_enabled') ?? false;
+    _reminderHour = prefs.getInt('reminder_hour') ?? 20;
+    _reminderMinute = prefs.getInt('reminder_minute') ?? 0;
+    if (_notificationsEnabled) {
+      NotificationService.scheduleDaily(_reminderHour, _reminderMinute);
+    }
     _language = prefs.getString('language') ?? 'uz';
     _userName = prefs.getString('user_name') ?? 'Foydalanuvchi';
     _usdRate = prefs.getDouble('usd_rate') ?? 0;
@@ -252,6 +287,95 @@ class AppProvider extends ChangeNotifier {
     await prefs.setDouble('monthly_budget', amount);
     _monthlyBudget = amount;
     notifyListeners();
+  }
+
+  // ── Kategoriya byudjetlari ──────────────────────────────────────────────────
+
+  Future<void> _saveCategoryBudgets() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('category_budgets', jsonEncode(_categoryBudgets));
+  }
+
+  Future<void> setCategoryBudget(String category, double limit) async {
+    _categoryBudgets[category] = limit;
+    await _saveCategoryBudgets();
+    notifyListeners();
+  }
+
+  Future<void> deleteCategoryBudget(String category) async {
+    _categoryBudgets.remove(category);
+    await _saveCategoryBudgets();
+    notifyListeners();
+  }
+
+  /// Bu oy kategoriya bo'yicha xarajat (UZS) — byudjet bilan solishtirish uchun.
+  double categorySpentThisMonth(String category) {
+    final now = DateTime.now();
+    return _transactions
+        .where((t) =>
+            t.type == 'expense' &&
+            t.currency == 'UZS' &&
+            t.category == category &&
+            t.date.month == now.month &&
+            t.date.year == now.year)
+        .fold(0.0, (s, t) => s + t.amount);
+  }
+
+  // ── Xavfsizlik (PIN / biometrik) ────────────────────────────────────────────
+
+  String _hashPin(String pin) =>
+      sha256.convert(utf8.encode('kisa_$pin')).toString();
+
+  Future<void> setPin(String pin) async {
+    final prefs = await SharedPreferences.getInstance();
+    _pinHash = _hashPin(pin);
+    _pinEnabled = true;
+    await prefs.setString('pin_hash', _pinHash!);
+    await prefs.setBool('pin_enabled', true);
+    notifyListeners();
+  }
+
+  Future<void> disablePin() async {
+    final prefs = await SharedPreferences.getInstance();
+    _pinHash = null;
+    _pinEnabled = false;
+    _biometricEnabled = false;
+    await prefs.remove('pin_hash');
+    await prefs.setBool('pin_enabled', false);
+    await prefs.setBool('biometric_enabled', false);
+    notifyListeners();
+  }
+
+  bool verifyPin(String pin) => _pinHash != null && _pinHash == _hashPin(pin);
+
+  Future<void> setBiometric(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    _biometricEnabled = value;
+    await prefs.setBool('biometric_enabled', value);
+    notifyListeners();
+  }
+
+  // ── Eslatma (bildirishnoma) ─────────────────────────────────────────────────
+
+  /// Kunlik eslatmani yoqadi/o'chiradi. Yoqishda ruxsat so'raydi; ruxsat
+  /// berilmasa false qaytaradi.
+  Future<bool> setNotifications(bool enabled, {int? hour, int? minute}) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (enabled) {
+      final granted = await NotificationService.requestPermission();
+      if (!granted) return false;
+      _reminderHour = hour ?? _reminderHour;
+      _reminderMinute = minute ?? _reminderMinute;
+      await NotificationService.scheduleDaily(_reminderHour, _reminderMinute);
+      await prefs.setInt('reminder_hour', _reminderHour);
+      await prefs.setInt('reminder_minute', _reminderMinute);
+    } else {
+      await NotificationService.cancelAll();
+    }
+    _notificationsEnabled = enabled;
+    await prefs.setBool('notifications_enabled', enabled);
+    notifyListeners();
+    return true;
   }
 
   Future<void> clearAllData() async {

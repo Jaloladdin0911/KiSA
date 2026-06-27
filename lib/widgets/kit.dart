@@ -9,7 +9,7 @@ class KCard extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double radius;
   final VoidCallback? onTap;
-  final Color color;
+  final Color? color;
   final List<BoxShadow> shadow;
 
   const KCard({
@@ -18,7 +18,7 @@ class KCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.radius = rCard,
     this.onTap,
-    this.color = KColors.card,
+    this.color,
     this.shadow = kSoftShadow,
   });
 
@@ -27,7 +27,7 @@ class KCard extends StatelessWidget {
     final card = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color,
+        color: color ?? KColors.card,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: shadow,
       ),
@@ -202,12 +202,12 @@ class KBackButton extends StatelessWidget {
       child: Container(
         width: 40,
         height: 40,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: KColors.card,
           shape: BoxShape.circle,
           boxShadow: kSoftShadow,
         ),
-        child: const Icon(Icons.chevron_left_rounded,
+        child: Icon(Icons.chevron_left_rounded,
             size: 24, color: KColors.ink),
       ),
     );

@@ -208,7 +208,7 @@ class GoalsScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(rTile)),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_today_rounded,
+                          Icon(Icons.calendar_today_rounded,
                               size: 18, color: KColors.sub),
                           const SizedBox(width: 12),
                           Text('Muddat: ${DateFmt.short(deadline)}',

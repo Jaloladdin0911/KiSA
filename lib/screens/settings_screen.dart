@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_strings.dart';
 import '../services/app_provider.dart';
+import '../services/export_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/kit.dart';
+import 'accounts_screen.dart';
+import 'security_screen.dart';
 
 /// Profil — KISA_DESIGN_SPEC.md, Section 10.
 class SettingsScreen extends StatefulWidget {
@@ -14,8 +17,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notif = true;
-
   String _mln(double v) {
     final a = v.abs();
     if (a >= 1e6) {
@@ -111,10 +112,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _divider(),
                     _row(Icons.credit_card_rounded, KColors.primary,
                         'Kartalarim',
-                        value: '2 ta', onTap: () => _soon(context)),
+                        value: '2 ta',
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const AccountsScreen()))),
                     _divider(),
                     _row(Icons.shield_outlined, KColors.purple, 'Xavfsizlik',
-                        onTap: () => _soon(context)),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const SecurityScreen()))),
                   ],
                 ),
               ),
@@ -126,8 +132,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   children: [
                     _toggleRow(Icons.notifications_none_rounded, KColors.orange,
-                        'Bildirishnomalar', _notif,
-                        (v) => setState(() => _notif = v)),
+                        'Bildirishnomalar', provider.notificationsEnabled,
+                        (v) => _toggleNotif(context, provider, v)),
                     _divider(),
                     _row(Icons.language_rounded, KColors.blue, 'Til',
                         value: kLanguageNames[provider.language] ?? "O'zbek",
@@ -138,6 +144,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         (v) => provider.setDarkMode(v)),
                   ],
                 ),
+              ),
+              const SizedBox(height: 22),
+
+              _label("MA'LUMOTLAR"),
+              KCard(
+                padding: EdgeInsets.zero,
+                child: _row(Icons.ios_share_rounded, KColors.primary,
+                    "Ma'lumotlarni eksport",
+                    value: 'CSV', onTap: () => _export(context, provider)),
               ),
               const SizedBox(height: 16),
 
@@ -175,8 +190,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: k(11, w: FontWeight.w600, c: KColors.mut, ls: 0.6)),
       );
 
-  Widget _divider() => const Padding(
-        padding: EdgeInsets.only(left: 60),
+  Widget _divider() => Padding(
+        padding: const EdgeInsets.only(left: 60),
         child: Divider(height: 1, thickness: 1, color: KColors.line),
       );
 
@@ -199,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(width: 6),
             ],
             if (labelColor == null)
-              const Icon(Icons.chevron_right_rounded,
+              Icon(Icons.chevron_right_rounded,
                   size: 20, color: KColors.mut),
           ],
         ),
@@ -358,10 +373,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _soon(BuildContext context) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Tez orada')));
+  Future<void> _toggleNotif(
+      BuildContext context, AppProvider provider, bool v) async {
+    if (v) {
+      final t = await showTimePicker(
+          context: context, initialTime: provider.reminderTime);
+      if (t == null) return;
+      final ok =
+          await provider.setNotifications(true, hour: t.hour, minute: t.minute);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Bildirishnoma uchun ruxsat berilmadi')));
+      } else if (ok && context.mounted) {
+        final hh = t.hour.toString().padLeft(2, '0');
+        final mm = t.minute.toString().padLeft(2, '0');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Har kuni $hh:$mm da eslatma keladi')));
+      }
+    } else {
+      provider.setNotifications(false);
+    }
   }
+
+  void _export(BuildContext context, AppProvider provider) {
+    if (provider.transactions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Eksport uchun ma'lumot yo'q")));
+      return;
+    }
+    ExportService.exportTransactions(provider.transactions, provider.s);
+  }
+
 }
 
 /// 44×26 toggle.

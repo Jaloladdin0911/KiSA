@@ -6,9 +6,11 @@ import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/categories.dart';
-import '../widgets/transaction_card.dart';
 import 'add_transaction_screen.dart';
 import 'goals_screen.dart';
+import 'transactions_screen.dart';
+import 'transfer_screen.dart';
+import 'accounts_screen.dart';
 
 /// Asosiy ekran — KISA_DESIGN_SPEC.md, Section 5.
 /// Token (KColors/kGradient/k) va real Provider ma'lumotlari bilan, responsive.
@@ -29,7 +31,18 @@ class DashboardScreen extends StatelessWidget {
                 const SizedBox(height: 6),
                 Padding(padding: kPad, child: _Header(provider: provider)),
                 const SizedBox(height: 20),
-                Padding(padding: kPad, child: _BalanceCard(provider: provider)),
+                Padding(
+                  padding: kPad,
+                  child: GestureDetector(
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => const AccountsScreen())),
+                    child: _BalanceCard(provider: provider),
+                  ),
+                ),
+                if (provider.currencyBalance('USD') != 0) ...[
+                  const SizedBox(height: 12),
+                  Padding(padding: kPad, child: _UsdChip(provider: provider)),
+                ],
                 const SizedBox(height: 16),
                 Padding(padding: kPad, child: _StatRow(provider: provider)),
                 const SizedBox(height: 22),
@@ -307,6 +320,42 @@ class _MastercardMark extends StatelessWidget {
   }
 }
 
+// ── Dollar hisobi chip (USD balans bo'lsa) ──────────────────────────────────
+
+class _UsdChip extends StatelessWidget {
+  final AppProvider provider;
+  const _UsdChip({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final usd = provider.currencyBalance('USD');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: KColors.card,
+        borderRadius: BorderRadius.circular(rCard),
+        boxShadow: kSoftShadow,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(
+                color: KColors.greenBg, shape: BoxShape.circle),
+            child: const Icon(Icons.attach_money_rounded,
+                size: 18, color: KColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Text('Dollar hisobi', style: k(13, w: FontWeight.w500, c: KColors.sub)),
+          const Spacer(),
+          Text(Money.format(usd, 'USD'), style: k(16, w: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Kirim / Chiqim stat kartalari ───────────────────────────────────────────
 
 class _StatRow extends StatelessWidget {
@@ -407,7 +456,8 @@ class _QuickActions extends StatelessWidget {
           label: "O'tkazma",
           icon: Icons.swap_horiz_rounded,
           color: KColors.primary,
-          onTap: () => showTransferModal(context, provider),
+          onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TransferScreen())),
         ),
         _QuickAction(
           label: "To'lov",
@@ -491,7 +541,8 @@ class _RecentSection extends StatelessWidget {
             Text("So'nggi amallar", style: k(16, w: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
-              onTap: () => _soon(context),
+              onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const TransactionsScreen())),
               child: Text('Barchasi',
                   style: k(13, w: FontWeight.w600, c: KColors.primary)),
             ),
@@ -529,7 +580,7 @@ class _RecentSection extends StatelessWidget {
                         },
                       ),
                       if (i != recent.length - 1)
-                        const Divider(
+                        Divider(
                             height: 1, thickness: 1, color: KColors.line),
                     ],
                   ],

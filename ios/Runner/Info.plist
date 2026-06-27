@@ -68,5 +68,7 @@
 	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Ilovaga xavfsiz kirish uchun Face ID ishlatiladi.</string>
 </dict>
 </plist>

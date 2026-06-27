@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/kisa_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -103,8 +102,15 @@ class _SplashScreenState extends State<SplashScreen>
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getBool('seen_onboarding') ?? false;
     if (!mounted) return;
-    Navigator.of(context)
-        .pushReplacementNamed(seen ? '/home' : '/onboarding');
+    final String target;
+    if (!seen) {
+      target = '/onboarding';
+    } else if (context.read<AppProvider>().pinEnabled) {
+      target = '/lock';
+    } else {
+      target = '/home';
+    }
+    Navigator.of(context).pushReplacementNamed(target);
   }
 
   @override
@@ -117,12 +123,10 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final c = context.c;
-
     return FadeTransition(
       opacity: _exitFade,
       child: Scaffold(
-        backgroundColor: c.bg,
+        backgroundColor: KColors.bg,
         body: Stack(
           children: [
             Center(
@@ -133,7 +137,19 @@ class _SplashScreenState extends State<SplashScreen>
                     scale: _logoScale,
                     child: FadeTransition(
                       opacity: _logoFade,
-                      child: const KisaLogo(size: 104),
+                      child: Container(
+                        width: 104,
+                        height: 104,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: kGradient,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: kGreenShadow,
+                        ),
+                        child: Text('KiSA',
+                            style: k(30,
+                                w: FontWeight.w300, c: Colors.white, ls: 1)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -143,12 +159,10 @@ class _SplashScreenState extends State<SplashScreen>
                       opacity: _textFade,
                       child: Column(
                         children: [
-                          Text('KiSA',
-                              style: context.t.displaySmall
-                                  ?.copyWith(fontSize: 36)),
+                          Text('KiSA', style: k(32, w: FontWeight.w700)),
                           const SizedBox(height: 6),
                           Text('Moliyaviy boshqaruv',
-                              style: context.t.bodyMedium),
+                              style: k(14, c: KColors.sub)),
                         ],
                       ),
                     ),
@@ -162,7 +176,7 @@ class _SplashScreenState extends State<SplashScreen>
               bottom: 56,
               child: FadeTransition(
                 opacity: _textFade,
-                child: const _LoadingDots(color: AppColors.brand),
+                child: const _LoadingDots(color: KColors.primary),
               ),
             ),
           ],
