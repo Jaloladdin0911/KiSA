@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 /// Kategoriya metama'lumotlari (ikonka + rang) — karta, modal va
-/// statistika ekranlari shu yagona manbadan foydalanadi.
+/// statistika ekranlari shu yagona manbadan foydalanadi. Ranglar Figma
+/// palitrasiga mos (oziq-ovqat to'q sariq, transport ko'k, kommunal binafsha...).
 class CategoryMeta {
   CategoryMeta._();
 
@@ -44,21 +44,21 @@ class CategoryMeta {
 
   static const Map<String, Color> _colors = {
     // Xarajat
-    'Oziq-ovqat': AppColors.brand,
+    'Oziq-ovqat': Color(0xFFFF8B3D), // to'q sariq
     'Kafe/Restoran': Color(0xFFFF922B),
-    'Transport': AppColors.info,
+    'Transport': Color(0xFF4C8DFF), // ko'k
     "Yoqilg'i": Color(0xFFE8590C),
-    'Kommunal': AppColors.warning,
+    'Kommunal': Color(0xFF8B5CF6), // binafsha
     'Aloqa': Color(0xFF4DABF7),
-    "Ko'ngilochar": Color(0xFFE64980),
-    'Ijara': AppColors.violet,
+    "Ko'ngilochar": Color(0xFF1C9D67), // yashil
+    'Ijara': Color(0xFF7048E8),
     'Kiyim': Color(0xFF15AABF),
-    "Sog'liq": AppColors.expense,
+    "Sog'liq": Color(0xFFF2585B), // qizil
     "Ta'lim": Color(0xFF20C997),
     'Sport': Color(0xFF40C057),
-    "Go'zallik": Color(0xFFF06595),
+    "Go'zallik": Color(0xFFEC4899), // pushti
     'Bolalar': Color(0xFFFAB005),
-    "Uy-ro'zg'or": Color(0xFF748FFC),
+    "Uy-ro'zg'or": Color(0xFF6366F1), // indigo
     "Sovg'alar": Color(0xFFD6336C),
     'Sayohat': Color(0xFF22B8CF),
     'Soliq': Color(0xFFFA5252),
@@ -70,10 +70,10 @@ class CategoryMeta {
     'Biznes': Color(0xFF7048E8),
     'Investitsiya': Color(0xFF0CA678),
     'Dividend': Color(0xFF3B5BDB),
-    'Ijara daromad': AppColors.violet,
+    'Ijara daromad': Color(0xFF7048E8),
     'Sotuv': Color(0xFF2F9E44),
     'Qarz qaytarish': Color(0xFF12B886),
-    "Sovg'a": Color(0xFFE64980),
+    "Sovg'a": Color(0xFFEC4899),
     // Umumiy
     'Boshqa': Color(0xFF868E96),
   };

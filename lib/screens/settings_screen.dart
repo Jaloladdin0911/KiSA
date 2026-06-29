@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../widgets/kit.dart';
 import 'accounts_screen.dart';
 import 'security_screen.dart';
+import 'recurring_screen.dart';
 
 /// Profil — KISA_DESIGN_SPEC.md, Section 10.
 class SettingsScreen extends StatefulWidget {
@@ -36,7 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 6, 20, 120),
             children: [
-              Text('Profil', style: k(22, w: FontWeight.w700)),
+              Text(s('nav_profile'), style: k(22, w: FontWeight.w700)),
               const SizedBox(height: 18),
 
               // Profil header
@@ -65,7 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               overflow: TextOverflow.ellipsis,
                               style: k(16, w: FontWeight.w600)),
                           const SizedBox(height: 2),
-                          Text('Lokal hisob',
+                          Text(s('local_account'),
                               style: k(12.5, c: KColors.sub)),
                         ],
                       ),
@@ -91,67 +92,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 child: Row(
                   children: [
-                    _stat(_mln(provider.currencyBalance('UZS')), 'Balans'),
+                    _stat(_mln(provider.currencyBalance('UZS')),
+                        s('balance_label')),
                     _vline(),
-                    _stat('2', 'Kartalar'),
+                    _stat('2', s('cards_label')),
                     _vline(),
-                    _stat('${provider.goals.length}', 'Maqsadlar'),
+                    _stat('${provider.goals.length}', s('goals')),
                   ],
                 ),
               ),
               const SizedBox(height: 22),
 
-              _label('HISOB'),
+              _label(s('section_account')),
               KCard(
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
                     _row(Icons.person_outline_rounded, KColors.blue,
-                        "Shaxsiy ma'lumotlar",
+                        s('personal_info'),
                         onTap: () => _nameDialog(context, provider)),
                     _divider(),
                     _row(Icons.credit_card_rounded, KColors.primary,
-                        'Kartalarim',
-                        value: '2 ta',
+                        s('my_cards'),
+                        value: '2',
                         onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                                 builder: (_) => const AccountsScreen()))),
                     _divider(),
-                    _row(Icons.shield_outlined, KColors.purple, 'Xavfsizlik',
+                    _row(Icons.shield_outlined, KColors.purple, s('security'),
                         onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
                                 builder: (_) => const SecurityScreen()))),
+                    _divider(),
+                    _row(Icons.event_repeat_rounded, KColors.orange,
+                        s('recurring'),
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => const RecurringScreen()))),
                   ],
                 ),
               ),
               const SizedBox(height: 22),
 
-              _label('SOZLAMALAR'),
+              _label(s('section_settings')),
               KCard(
                 padding: EdgeInsets.zero,
                 child: Column(
                   children: [
                     _toggleRow(Icons.notifications_none_rounded, KColors.orange,
-                        'Bildirishnomalar', provider.notificationsEnabled,
+                        s('notifications'), provider.notificationsEnabled,
                         (v) => _toggleNotif(context, provider, v)),
                     _divider(),
-                    _row(Icons.language_rounded, KColors.blue, 'Til',
+                    _row(Icons.language_rounded, KColors.blue, s('language'),
                         value: kLanguageNames[provider.language] ?? "O'zbek",
                         onTap: () => _languageSheet(context, provider, s)),
                     _divider(),
                     _toggleRow(Icons.nightlight_round, KColors.indigo,
-                        'Tungi rejim', provider.isDarkMode,
+                        s('night_mode'), provider.isDarkMode,
                         (v) => provider.setDarkMode(v)),
                   ],
                 ),
               ),
               const SizedBox(height: 22),
 
-              _label("MA'LUMOTLAR"),
+              _label(s('section_data')),
               KCard(
                 padding: EdgeInsets.zero,
                 child: _row(Icons.ios_share_rounded, KColors.primary,
-                    "Ma'lumotlarni eksport",
+                    s('export_data'),
                     value: 'CSV', onTap: () => _export(context, provider)),
               ),
               const SizedBox(height: 16),
@@ -160,7 +168,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               KCard(
                 padding: EdgeInsets.zero,
                 onTap: () => _clearDialog(context, provider),
-                child: _row(Icons.logout_rounded, KColors.danger, 'Chiqish',
+                child: _row(Icons.logout_rounded, KColors.danger, s('logout'),
                     labelColor: KColors.danger),
               ),
               const SizedBox(height: 24),
@@ -254,7 +262,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: KColors.card,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Ismingiz', style: k(16, w: FontWeight.w700)),
+        title: Text(provider.s('personal_info'),
+            style: k(16, w: FontWeight.w700)),
         content: TextField(
           autofocus: true,
           controller: ctrl,
@@ -272,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Bekor', style: k(14, c: KColors.sub))),
+              child: Text(provider.s('cancel'), style: k(14, c: KColors.sub))),
           TextButton(
             onPressed: () {
               if (ctrl.text.trim().isNotEmpty) {
@@ -280,7 +289,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: Text('Saqlash', style: k(14, w: FontWeight.w600, c: KColors.primary)),
+            child: Text(provider.s('save'),
+                style: k(14, w: FontWeight.w600, c: KColors.primary)),
           ),
         ],
       ),
@@ -311,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Text('Til', style: k(18, w: FontWeight.w700)),
+            Text(s('language'), style: k(18, w: FontWeight.w700)),
             const SizedBox(height: 10),
             ...kLanguageNames.entries.map((e) {
               final sel = e.key == provider.language;
@@ -351,21 +361,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: KColors.card,
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Barcha ma\'lumotlarni o\'chirish',
+        title: Text(provider.s('clear_all'),
             style: k(16, w: FontWeight.w700, c: KColors.danger)),
-        content: Text(
-            'Barcha tranzaksiya va maqsadlar butunlay o\'chadi. Buni qaytarib bo\'lmaydi.',
+        content: Text(provider.s('clear_confirm'),
             style: k(13.5, c: KColors.sub, height: 1.4)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Bekor', style: k(14, c: KColors.sub))),
+              child: Text(provider.s('cancel'), style: k(14, c: KColors.sub))),
           TextButton(
             onPressed: () {
               provider.clearAllData();
               Navigator.pop(ctx);
             },
-            child: Text("O'chirish",
+            child: Text(provider.s('delete'),
                 style: k(14, w: FontWeight.w600, c: KColors.danger)),
           ),
         ],
@@ -382,13 +391,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final ok =
           await provider.setNotifications(true, hour: t.hour, minute: t.minute);
       if (!ok && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Bildirishnoma uchun ruxsat berilmadi')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(provider.s('notif_denied'))));
       } else if (ok && context.mounted) {
         final hh = t.hour.toString().padLeft(2, '0');
         final mm = t.minute.toString().padLeft(2, '0');
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Har kuni $hh:$mm da eslatma keladi')));
+            content: Text('${provider.s('reminder_set')} · $hh:$mm')));
       }
     } else {
       provider.setNotifications(false);
@@ -398,7 +407,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _export(BuildContext context, AppProvider provider) {
     if (provider.transactions.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Eksport uchun ma'lumot yo'q")));
+          SnackBar(content: Text(provider.s('export_empty'))));
       return;
     }
     ExportService.exportTransactions(provider.transactions, provider.s);

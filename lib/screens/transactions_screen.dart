@@ -21,11 +21,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   String _filter = 'all'; // all | income | expense | today
   String _query = '';
 
-  static const _monthsUpper = [
-    'YAN', 'FEV', 'MAR', 'APR', 'MAY', 'IYUN',
-    'IYUL', 'AVG', 'SEN', 'OKT', 'NOY', 'DEK',
-  ];
-
   bool _matchesFilter(TransactionModel t) {
     switch (_filter) {
       case 'income':
@@ -50,15 +45,16 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   }
 
   String _groupLabel(DateTime d) {
+    final s = context.read<AppProvider>().s;
     final n = DateTime.now();
     if (d.year == n.year && d.month == n.month && d.day == n.day) {
-      return 'BUGUN';
+      return s('today').toUpperCase();
     }
     final y = n.subtract(const Duration(days: 1));
     if (d.year == y.year && d.month == y.month && d.day == y.day) {
-      return 'KECHA';
+      return s('yesterday').toUpperCase();
     }
-    return '${d.day}-${_monthsUpper[d.month - 1]}';
+    return '${d.day}-${s.monthsShort[d.month - 1].toUpperCase()}';
   }
 
   @override
@@ -92,7 +88,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   const KBackButton(),
                   Expanded(
                     child: Center(
-                      child: Text('Tranzaksiyalar',
+                      child: Text(provider.s('transactions'),
                           style: k(17, w: FontWeight.w600)),
                     ),
                   ),
@@ -126,7 +122,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                         decoration: InputDecoration(
                           isCollapsed: true,
                           border: InputBorder.none,
-                          hintText: 'Qidirish...',
+                          hintText: provider.s('search_hint'),
                           hintStyle: k(14, c: KColors.mut),
                         ),
                       ),
@@ -144,10 +140,10 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                 scrollDirection: Axis.horizontal,
                 padding: kPad,
                 children: [
-                  _chip('all', 'Hammasi'),
-                  _chip('income', 'Kirim'),
-                  _chip('expense', 'Chiqim'),
-                  _chip('today', 'Bugun'),
+                  _chip('all', provider.s('filter_all')),
+                  _chip('income', provider.s('kirim')),
+                  _chip('expense', provider.s('chiqim')),
+                  _chip('today', provider.s('today')),
                 ],
               ),
             ),
@@ -157,7 +153,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             Expanded(
               child: items.isEmpty
                   ? Center(
-                      child: Text("Tranzaksiya topilmadi",
+                      child: Text(provider.s('not_found'),
                           style: k(14, c: KColors.mut)),
                     )
                   : ListView.builder(

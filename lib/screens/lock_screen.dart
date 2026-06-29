@@ -3,10 +3,17 @@ import 'package:provider/provider.dart';
 import 'package:local_auth/local_auth.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/kisa_logo.dart';
 
-/// Qulf ekrani — ilova ochilganda PIN/biometrik so'raydi.
+/// Qulf ekrani — ilova ochilganda yoki fon'dan qaytganda PIN/biometrik so'raydi.
 class LockScreen extends StatefulWidget {
-  const LockScreen({super.key});
+  /// true bo'lsa — overlay (fon'dan qaytishda), unlock pop qiladi.
+  /// false bo'lsa — ilk ishga tushish, unlock /home ga o'tadi.
+  final bool asOverlay;
+  const LockScreen({super.key, this.asOverlay = false});
+
+  /// Hozir qulf ekrani ko'rinib turibdimi (takror ochilmasligi uchun).
+  static bool isShowing = false;
 
   @override
   State<LockScreen> createState() => _LockScreenState();
@@ -20,15 +27,22 @@ class _LockScreenState extends State<LockScreen> {
   @override
   void initState() {
     super.initState();
+    LockScreen.isShowing = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (context.read<AppProvider>().biometricEnabled) _biometric();
     });
   }
 
+  @override
+  void dispose() {
+    LockScreen.isShowing = false;
+    super.dispose();
+  }
+
   Future<void> _biometric() async {
     try {
       final ok = await _auth.authenticate(
-        localizedReason: 'Ilovaga kirish uchun tasdiqlang',
+        localizedReason: context.read<AppProvider>().s('unlock_reason'),
         options: const AuthenticationOptions(
             biometricOnly: true, stickyAuth: true),
       );
@@ -37,7 +51,11 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   void _unlock() {
-    Navigator.of(context).pushReplacementNamed('/home');
+    if (widget.asOverlay) {
+      Navigator.of(context).pop();
+    } else {
+      Navigator.of(context).pushReplacementNamed('/home');
+    }
   }
 
   void _onKey(String key) {
@@ -64,27 +82,17 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bio = context.watch<AppProvider>().biometricEnabled;
+    final provider = context.watch<AppProvider>();
+    final bio = provider.biometricEnabled;
     return Scaffold(
       backgroundColor: KColors.bg,
       body: SafeArea(
         child: Column(
           children: [
             const Spacer(flex: 2),
-            Container(
-              width: 80,
-              height: 80,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                gradient: kGradient,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: kGreenShadow,
-              ),
-              child: Text('KiSA',
-                  style: k(24, w: FontWeight.w300, c: Colors.white, ls: 1)),
-            ),
+            const KisaLogo(size: 80),
             const SizedBox(height: 24),
-            Text(_error ? "Noto'g'ri PIN" : 'PIN-kodni kiriting',
+            Text(_error ? provider.s('wrong_pin') : provider.s('enter_pin'),
                 style: k(16,
                     w: FontWeight.w600,
                     c: _error ? KColors.danger : KColors.ink)),
@@ -140,6 +148,7 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     return Scaffold(
       backgroundColor: KColors.bg,
       body: SafeArea(
@@ -159,10 +168,8 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
             const Spacer(flex: 2),
             Text(
               _error
-                  ? 'PIN mos kelmadi, qaytadan'
-                  : (_first == null
-                      ? 'Yangi PIN-kod o\'ylab toping'
-                      : 'PIN-kodni takrorlang'),
+                  ? s('pin_mismatch')
+                  : (_first == null ? s('new_pin') : s('repeat_pin')),
               style: k(17,
                   w: FontWeight.w600,
                   c: _error ? KColors.danger : KColors.ink),

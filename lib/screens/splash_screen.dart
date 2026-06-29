@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/kisa_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -137,19 +138,7 @@ class _SplashScreenState extends State<SplashScreen>
                     scale: _logoScale,
                     child: FadeTransition(
                       opacity: _logoFade,
-                      child: Container(
-                        width: 104,
-                        height: 104,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          gradient: kGradient,
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: kGreenShadow,
-                        ),
-                        child: Text('KiSA',
-                            style: k(30,
-                                w: FontWeight.w300, c: Colors.white, ls: 1)),
-                      ),
+                      child: const KisaLogo(size: 104),
                     ),
                   ),
                   const SizedBox(height: 30),
@@ -161,7 +150,7 @@ class _SplashScreenState extends State<SplashScreen>
                         children: [
                           Text('KiSA', style: k(32, w: FontWeight.w700)),
                           const SizedBox(height: 6),
-                          Text('Moliyaviy boshqaruv',
+                          Text(context.watch<AppProvider>().s('app_tagline'),
                               style: k(14, c: KColors.sub)),
                         ],
                       ),

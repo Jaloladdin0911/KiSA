@@ -94,7 +94,7 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Assalomu alaykum', style: k(12, c: KColors.sub)),
+              Text(provider.s('greeting'), style: k(12, c: KColors.sub)),
               const SizedBox(height: 1),
               Text(provider.userName,
                   maxLines: 1,
@@ -197,7 +197,7 @@ class _BalanceCardState extends State<_BalanceCard> {
         children: [
           Row(
             children: [
-              Text('Umumiy balans',
+              Text(p.s('total_balance'),
                   style: k(13, w: FontWeight.w500, c: white82)),
               const Spacer(),
               GestureDetector(
@@ -230,7 +230,7 @@ class _BalanceCardState extends State<_BalanceCard> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child:
-                    Text("so'm", style: k(15, w: FontWeight.w500, c: white82)),
+                    Text(p.s('som'), style: k(15, w: FontWeight.w500, c: white82)),
               ),
             ],
           ),
@@ -257,7 +257,7 @@ class _BalanceCardState extends State<_BalanceCard> {
                   Text('${momPct.abs().toStringAsFixed(1)}%',
                       style: k(12, w: FontWeight.w600, c: Colors.white)),
                   const SizedBox(width: 5),
-                  Text("o'tgan oyga nisbatan",
+                  Text(p.s('vs_last_month'),
                       style: k(12,
                           c: Colors.white.withValues(alpha: 0.85))),
                 ],
@@ -347,7 +347,8 @@ class _UsdChip extends StatelessWidget {
                 size: 18, color: KColors.primary),
           ),
           const SizedBox(width: 12),
-          Text('Dollar hisobi', style: k(13, w: FontWeight.w500, c: KColors.sub)),
+          Text(provider.s('dollar_account'),
+              style: k(13, w: FontWeight.w500, c: KColors.sub)),
           const Spacer(),
           Text(Money.format(usd, 'USD'), style: k(16, w: FontWeight.w700)),
         ],
@@ -368,7 +369,7 @@ class _StatRow extends StatelessWidget {
       children: [
         Expanded(
           child: _StatCard(
-            label: 'Kirim',
+            label: provider.s('kirim'),
             amount: provider.incomeThisMonth('UZS'),
             icon: Icons.south_west_rounded,
             color: KColors.primary,
@@ -378,7 +379,7 @@ class _StatRow extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: _StatCard(
-            label: 'Chiqim',
+            label: provider.s('chiqim'),
             amount: provider.expenseThisMonth('UZS'),
             icon: Icons.north_east_rounded,
             color: KColors.danger,
@@ -453,14 +454,14 @@ class _QuickActions extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _QuickAction(
-          label: "O'tkazma",
+          label: provider.s('transfer'),
           icon: Icons.swap_horiz_rounded,
           color: KColors.primary,
           onTap: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const TransferScreen())),
         ),
         _QuickAction(
-          label: "To'lov",
+          label: provider.s('qa_payment'),
           icon: Icons.bolt_rounded,
           color: KColors.orange,
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
@@ -468,13 +469,13 @@ class _QuickActions extends StatelessWidget {
           )),
         ),
         _QuickAction(
-          label: 'Skaner',
+          label: provider.s('qa_scan'),
           icon: Icons.qr_code_scanner_rounded,
           color: KColors.blue,
           onTap: () => _soon(context),
         ),
         _QuickAction(
-          label: 'Maqsad',
+          label: provider.s('qa_goal'),
           icon: Icons.flag_rounded,
           color: KColors.purple,
           onTap: () => Navigator.of(context).push(
@@ -538,12 +539,12 @@ class _RecentSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text("So'nggi amallar", style: k(16, w: FontWeight.w600)),
+            Text(s('recent_actions'), style: k(16, w: FontWeight.w600)),
             const Spacer(),
             GestureDetector(
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const TransactionsScreen())),
-              child: Text('Barchasi',
+              child: Text(s('see_all'),
                   style: k(13, w: FontWeight.w600, c: KColors.primary)),
             ),
           ],
@@ -560,7 +561,7 @@ class _RecentSection extends StatelessWidget {
               ? Padding(
                   padding: const EdgeInsets.symmetric(vertical: 28),
                   child: Center(
-                    child: Text("Hali amallar yo'q",
+                    child: Text(s('no_transactions'),
                         style: k(13.5, c: KColors.mut)),
                   ),
                 )
@@ -603,11 +604,11 @@ class _TxRow extends StatelessWidget {
     if (date.year == now.year &&
         date.month == now.month &&
         date.day == now.day) {
-      return 'Bugun';
+      return strings('today');
     }
     final y = now.subtract(const Duration(days: 1));
     if (date.year == y.year && date.month == y.month && date.day == y.day) {
-      return 'Kecha';
+      return strings('yesterday');
     }
     return DateFmt.short(date);
   }
@@ -687,6 +688,6 @@ class _TxRow extends StatelessWidget {
 
 void _soon(BuildContext context) {
   ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Tez orada')),
+    SnackBar(content: Text(context.read<AppProvider>().s('soon'))),
   );
 }

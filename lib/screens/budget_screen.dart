@@ -11,11 +11,6 @@ import '../widgets/kit.dart';
 class BudgetScreen extends StatelessWidget {
   const BudgetScreen({super.key});
 
-  static const _months = [
-    'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun',
-    'Iyul', 'Avgust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr',
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
@@ -50,8 +45,9 @@ class BudgetScreen extends StatelessWidget {
               Padding(
                 padding: kPad,
                 child: KPageHeader(
-                  title: 'Byudjet',
-                  subtitle: '${_months[now.month - 1]} oyi · $daysInMonth kun',
+                  title: provider.s('budget'),
+                  subtitle:
+                      '${provider.s.months[now.month - 1]} · $daysInMonth ${provider.s('days_word')}',
                   trailing:
                       KAddButton(onTap: () => _editSheet(context, provider)),
                 ),
@@ -69,12 +65,13 @@ class BudgetScreen extends StatelessWidget {
                 padding: kPad,
                 child: Row(
                   children: [
-                    Text('Kategoriyalar', style: k(16, w: FontWeight.w600)),
+                    Text(provider.s('categories'),
+                        style: k(16, w: FontWeight.w600)),
                     const Spacer(),
                     if (hasBudgets)
                       GestureDetector(
                         onTap: () => _editSheet(context, provider),
-                        child: Text('Tahrirlash',
+                        child: Text(provider.s('edit'),
                             style:
                                 k(13, w: FontWeight.w600, c: KColors.primary)),
                       ),
@@ -95,11 +92,10 @@ class BudgetScreen extends StatelessWidget {
                         Icon(Icons.account_balance_wallet_outlined,
                             size: 40, color: KColors.mut),
                         const SizedBox(height: 12),
-                        Text('Hali byudjet yo\'q',
+                        Text(provider.s('no_budget'),
                             style: k(15, w: FontWeight.w600)),
                         const SizedBox(height: 4),
-                        Text(
-                            'Kategoriyalarga oylik limit qo\'shing va xarajatni nazorat qiling',
+                        Text(provider.s('no_budget_desc'),
                             textAlign: TextAlign.center,
                             style: k(12.5, c: KColors.sub, height: 1.4)),
                         const SizedBox(height: 16),
@@ -112,7 +108,7 @@ class BudgetScreen extends StatelessWidget {
                               gradient: kGradient,
                               borderRadius: BorderRadius.circular(rBtn),
                             ),
-                            child: Text('Byudjet qo\'shish',
+                            child: Text(provider.s('add_budget'),
                                 style: k(14,
                                     w: FontWeight.w600, c: Colors.white)),
                           ),
@@ -179,12 +175,12 @@ class BudgetScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Text(isEdit ? s.cat(selected) : 'Byudjet qo\'shish',
+                  Text(isEdit ? s.cat(selected) : s('add_budget'),
                       style: k(18, w: FontWeight.w700)),
                   const SizedBox(height: 16),
 
                   if (!isEdit) ...[
-                    Text('Kategoriya',
+                    Text(s('category'),
                         style: k(13, w: FontWeight.w600, c: KColors.sub)),
                     const SizedBox(height: 10),
                     Wrap(
@@ -228,7 +224,7 @@ class BudgetScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                   ],
 
-                  Text('Oylik limit',
+                  Text(s('monthly_limit'),
                       style: k(13, w: FontWeight.w600, c: KColors.sub)),
                   const SizedBox(height: 10),
                   TextField(
@@ -239,7 +235,7 @@ class BudgetScreen extends StatelessWidget {
                     inputFormatters: Money.amountFormatters,
                     style: k(16),
                     decoration: InputDecoration(
-                      suffixText: "so'm",
+                      suffixText: s('som'),
                       filled: true,
                       fillColor: KColors.bg,
                       border: OutlineInputBorder(
@@ -286,7 +282,7 @@ class BudgetScreen extends StatelessWidget {
                               gradient: kGradient,
                               borderRadius: BorderRadius.circular(rBtn),
                             ),
-                            child: Text('Saqlash',
+                            child: Text(s('save'),
                                 style: k(16,
                                     w: FontWeight.w600, c: Colors.white)),
                           ),
@@ -317,6 +313,7 @@ class _Hero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     final w90 = Colors.white.withValues(alpha: 0.9);
     return Container(
       padding: const EdgeInsets.all(20),
@@ -334,7 +331,7 @@ class _Hero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Qolgan mablag'",
+                    Text(s('remaining'),
                         style: k(13, w: FontWeight.w500, c: w90)),
                     const SizedBox(height: 6),
                     Row(
@@ -352,7 +349,7 @@ class _Hero extends StatelessWidget {
                         const SizedBox(width: 6),
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
-                          child: Text("so'm",
+                          child: Text(s('som'),
                               style: k(14, w: FontWeight.w500, c: w90)),
                         ),
                       ],
@@ -389,10 +386,10 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Text('Sarflandi: ${Money.plain(spent, currency: 'UZS')}',
+              Text('${s('spent')}: ${Money.plain(spent, currency: 'UZS')}',
                   style: k(12, w: FontWeight.w500, c: w90)),
               const Spacer(),
-              Text('Limit: ${Money.plain(limit, currency: 'UZS')}',
+              Text('${s('limit_label')}: ${Money.plain(limit, currency: 'UZS')}',
                   style: k(12, w: FontWeight.w500, c: w90)),
             ],
           ),
@@ -443,7 +440,7 @@ class _BudgetRow extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   over
-                      ? 'Limitdan oshgan'
+                      ? context.watch<AppProvider>().s('over_limit')
                       : '${Money.plain(spent, currency: 'UZS')} / ${Money.plain(limit, currency: 'UZS')}',
                   style: k(12, c: over ? KColors.danger : KColors.mut),
                 ),

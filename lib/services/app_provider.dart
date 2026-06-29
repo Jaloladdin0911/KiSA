@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction_model.dart';
 import '../models/goal_model.dart';
+import '../models/recurring_model.dart';
 import '../l10n/app_strings.dart';
 import 'local_database.dart';
 import 'rate_service.dart';
@@ -24,6 +25,7 @@ class AppProvider extends ChangeNotifier {
   bool _isDarkMode = false;
   double _monthlyBudget = 0.0;
   Map<String, double> _categoryBudgets = {};
+  List<RecurringModel> _recurring = [];
   bool _pinEnabled = false;
   bool _biometricEnabled = false;
   String? _pinHash;
@@ -44,6 +46,7 @@ class AppProvider extends ChangeNotifier {
   Map<String, double> get categoryBudgets => _categoryBudgets;
   double get totalCategoryBudget =>
       _categoryBudgets.values.fold(0.0, (a, b) => a + b);
+  List<RecurringModel> get recurring => _recurring;
   bool get pinEnabled => _pinEnabled;
   bool get biometricEnabled => _biometricEnabled;
   bool get notificationsEnabled => _notificationsEnabled;
@@ -161,6 +164,14 @@ class AppProvider extends ChangeNotifier {
             m.map((k, v) => MapEntry(k, (v as num).toDouble()));
       } catch (_) {}
     }
+    final rec = prefs.getString('recurring');
+    if (rec != null) {
+      try {
+        _recurring = (jsonDecode(rec) as List)
+            .map((e) => RecurringModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (_) {}
+    }
     _pinEnabled = prefs.getBool('pin_enabled') ?? false;
     _biometricEnabled = prefs.getBool('biometric_enabled') ?? false;
     _pinHash = prefs.getString('pin_hash');
@@ -177,6 +188,9 @@ class AppProvider extends ChangeNotifier {
     _rateDate = rd != null ? DateTime.tryParse(rd) : null;
 
     await _loadFromLocal();
+
+    // Takroriy to'lovlardan muddati kelganlarini avtomatik yaratamiz
+    await _processRecurring();
 
     // Kursni fonda yangilash (offline bo'lsa kesh qoladi, xatosiz tushadi)
     _refreshRate();
@@ -305,6 +319,66 @@ class AppProvider extends ChangeNotifier {
   Future<void> deleteCategoryBudget(String category) async {
     _categoryBudgets.remove(category);
     await _saveCategoryBudgets();
+    notifyListeners();
+  }
+
+  // ── Takroriy to'lovlar ──────────────────────────────────────────────────────
+
+  Future<void> _saveRecurring() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+        'recurring', jsonEncode(_recurring.map((r) => r.toJson()).toList()));
+  }
+
+  /// Muddati kelgan takroriy to'lovlarni tranzaksiyaga aylantiradi (catch-up).
+  Future<void> _processRecurring() async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    bool changed = false;
+    int counter = 0;
+    for (var i = 0; i < _recurring.length; i++) {
+      final r = _recurring[i];
+      var next = r.nextDate;
+      // Bir ochilishda maksimal 370 ta yaratamiz (runaway oldini olish)
+      int guard = 0;
+      while (!next.isAfter(todayDate) && guard < 370) {
+        await _local.insertTransaction(TransactionModel(
+          id: '${DateTime.now().millisecondsSinceEpoch}_${counter++}',
+          userId: _userId,
+          type: r.type,
+          amount: r.amount,
+          category: r.category,
+          date: next,
+          note: r.note,
+          place: r.place,
+          currency: r.currency,
+        ));
+        next = r.advance(next);
+        changed = true;
+        guard++;
+      }
+      // Juda ko'p o'tkazib yuborilgan bo'lsa, qolganini yaratmasdan kelajakka o'tamiz
+      while (!next.isAfter(todayDate)) {
+        next = r.advance(next);
+      }
+      if (next != r.nextDate) _recurring[i] = r.copyWith(nextDate: next);
+    }
+    if (changed) {
+      await _saveRecurring();
+      await _loadFromLocal();
+    }
+  }
+
+  Future<void> addRecurring(RecurringModel r) async {
+    _recurring.add(r);
+    await _saveRecurring();
+    await _processRecurring();
+    notifyListeners();
+  }
+
+  Future<void> deleteRecurring(String id) async {
+    _recurring.removeWhere((r) => r.id == id);
+    await _saveRecurring();
     notifyListeners();
   }
 

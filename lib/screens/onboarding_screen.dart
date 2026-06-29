@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/kisa_logo.dart';
 
 /// Xush kelibsiz / Onboarding — KISA_DESIGN_SPEC.md, Section 3.
 /// 3 sahifali (swipe), birinchi ishga tushishda ko'rsatiladi.
@@ -16,21 +19,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _index = 0;
 
   static const _pages = [
+    _Page(logoText: 'KiSA', titleKey: 'ob1_title', subtitleKey: 'ob1_sub'),
     _Page(
-      logoText: 'KiSA',
-      title: 'Pul nazorati endi\njuda oson',
-      subtitle: 'KiSA bilan hisob, byudjet va\nmaqsadlar — bitta ilovada.',
-    ),
+        icon: Icons.pie_chart_rounded,
+        titleKey: 'ob2_title',
+        subtitleKey: 'ob2_sub'),
     _Page(
-      icon: Icons.pie_chart_rounded,
-      title: 'Byudjetni\nnazorat qiling',
-      subtitle: "Har kategoriyaga limit qo'ying va\nxarajatlaringizni kuzating.",
-    ),
-    _Page(
-      icon: Icons.flag_rounded,
-      title: 'Maqsadlaringizga\neriching',
-      subtitle: "Jamg'arma maqsadlari qo'ying va\nhar kuni yaqinlashing.",
-    ),
+        icon: Icons.flag_rounded,
+        titleKey: 'ob3_title',
+        subtitleKey: 'ob3_sub'),
   ];
 
   bool get _isLast => _index == _pages.length - 1;
@@ -58,6 +55,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     return Scaffold(
       backgroundColor: KColors.bg,
       body: SafeArea(
@@ -105,7 +103,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     borderRadius: BorderRadius.circular(rBtn),
                     boxShadow: kGreenShadow,
                   ),
-                  child: Text(_isLast ? 'Boshlash' : 'Keyingi',
+                  child: Text(_isLast ? s('start') : s('next'),
                       style: k(16, w: FontWeight.w600, c: Colors.white)),
                 ),
               ),
@@ -116,11 +114,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               onTap: _finish,
               child: Text.rich(
                 TextSpan(
-                  text: 'Hisobingiz bormi? ',
+                  text: s('have_account'),
                   style: k(14, c: KColors.sub),
                   children: [
                     TextSpan(
-                      text: 'Kirish',
+                      text: s('login'),
                       style: k(14, w: FontWeight.w600, c: KColors.primary),
                     ),
                   ],
@@ -138,12 +136,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 class _Page {
   final String? logoText;
   final IconData? icon;
-  final String title, subtitle;
+  final String titleKey, subtitleKey;
   const _Page({
     this.logoText,
     this.icon,
-    required this.title,
-    required this.subtitle,
+    required this.titleKey,
+    required this.subtitleKey,
   });
 }
 
@@ -153,6 +151,7 @@ class _PageView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     return Padding(
       padding: kPad,
       child: Column(
@@ -171,30 +170,28 @@ class _PageView extends StatelessWidget {
                 const _AccentDot(
                     bottom: 30, right: 36, color: KColors.gradStart),
                 const _AccentDot(top: 70, right: 22, color: KColors.gradEnd),
-                Container(
-                  width: 104,
-                  height: 104,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: kGradient,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: kGreenShadow,
-                  ),
-                  child: page.logoText != null
-                      ? Text(page.logoText!,
-                          style: k(30,
-                              w: FontWeight.w300, c: Colors.white, ls: 1))
-                      : Icon(page.icon, color: Colors.white, size: 46),
-                ),
+                page.logoText != null
+                    ? const KisaLogo(size: 104)
+                    : Container(
+                        width: 104,
+                        height: 104,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          gradient: kGradient,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: kGreenShadow,
+                        ),
+                        child: Icon(page.icon, color: Colors.white, size: 46),
+                      ),
               ],
             ),
           ),
           const Spacer(flex: 2),
-          Text(page.title,
+          Text(s(page.titleKey),
               textAlign: TextAlign.center,
               style: k(26, w: FontWeight.w700, height: 1.25)),
           const SizedBox(height: 14),
-          Text(page.subtitle,
+          Text(s(page.subtitleKey),
               textAlign: TextAlign.center,
               style: k(14.5, c: KColors.sub, height: 1.4)),
           const Spacer(flex: 3),

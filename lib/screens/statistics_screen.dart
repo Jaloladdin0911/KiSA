@@ -57,8 +57,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               Padding(
                 padding: kPad,
                 child: KPageHeader(
-                  title: 'Statistika',
-                  subtitle: 'Xarajatlaringiz tahlili',
+                  title: provider.s('statistics'),
+                  subtitle: provider.s('stats_subtitle'),
                   trailing: KIconButton(
                       icon: Icons.calendar_today_rounded,
                       onTap: () {}),
@@ -86,7 +86,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     height: 208,
                     child: total == 0
                         ? Center(
-                            child: Text("Ma'lumot yo'q",
+                            child: Text(provider.s('no_data'),
                                 style: k(14, c: KColors.mut)))
                         : Stack(
                             alignment: Alignment.center,
@@ -109,7 +109,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                   Text(Money.plain(total, currency: 'UZS'),
                                       style: k(23, w: FontWeight.w700)),
                                   const SizedBox(height: 2),
-                                  Text("Jami sarf · so'm",
+                                  Text(
+                                      "${provider.s('total_spent')} · ${provider.s('som')}",
                                       style: k(12,
                                           w: FontWeight.w500, c: KColors.sub)),
                                 ],
@@ -125,7 +126,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 padding: kPad,
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Kategoriya bo'yicha",
+                  child: Text(provider.s('by_category'),
                       style: k(15, w: FontWeight.w600)),
                 ),
               ),
@@ -134,7 +135,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               if (sorted.isEmpty)
                 Padding(
                   padding: kPad,
-                  child: Text("Bu davrda xarajat yo'q",
+                  child: Text(provider.s('no_expense_period'),
                       style: k(13, c: KColors.mut)),
                 )
               else
@@ -147,6 +148,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       amount: e.value,
                       pct: pct,
                       color: CategoryMeta.color(e.key),
+                      som: provider.s('som'),
                     ),
                   );
                 }),
@@ -165,6 +167,7 @@ class _Segmented extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     Widget seg(String v, String label) {
       final active = v == value;
       return Expanded(
@@ -192,14 +195,16 @@ class _Segmented extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFE6E9EF),
+        color: KColors.isDark
+            ? const Color(0xFF23262F)
+            : const Color(0xFFE6E9EF),
         borderRadius: BorderRadius.circular(rTile),
       ),
       child: Row(
         children: [
-          seg('week', 'Hafta'),
-          seg('month', 'Oy'),
-          seg('year', 'Yil'),
+          seg('week', s('period_week')),
+          seg('month', s('period_month')),
+          seg('year', s('period_year')),
         ],
       ),
     );
@@ -210,11 +215,13 @@ class _BreakdownRow extends StatelessWidget {
   final String name;
   final double amount, pct;
   final Color color;
+  final String som;
   const _BreakdownRow({
     required this.name,
     required this.amount,
     required this.pct,
     required this.color,
+    required this.som,
   });
 
   @override
@@ -239,7 +246,7 @@ class _BreakdownRow extends StatelessWidget {
         const SizedBox(height: 3),
         Padding(
           padding: const EdgeInsets.only(left: 23),
-          child: Text("${Money.plain(amount, currency: 'UZS')} so'm",
+          child: Text("${Money.plain(amount, currency: 'UZS')} $som",
               style: k(11.5, c: KColors.mut)),
         ),
         const SizedBox(height: 8),

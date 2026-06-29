@@ -28,8 +28,8 @@ class AccountsScreen extends StatelessWidget {
                       const KBackButton(),
                       Expanded(
                         child: Center(
-                          child:
-                              Text('Hisoblar', style: k(17, w: FontWeight.w600)),
+                          child: Text(provider.s('accounts'),
+                              style: k(17, w: FontWeight.w600)),
                         ),
                       ),
                       const SizedBox(width: 40),
@@ -47,7 +47,7 @@ class AccountsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 20),
                       _AccountCard(
-                        title: 'Naqd pul',
+                        title: provider.s('cash_money'),
                         icon: Icons.payments_rounded,
                         color: KColors.primary,
                         uzs: provider.balanceOf('cash', 'UZS'),
@@ -55,7 +55,7 @@ class AccountsScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 14),
                       _AccountCard(
-                        title: 'Karta',
+                        title: provider.s('wallet_card'),
                         icon: Icons.credit_card_rounded,
                         color: KColors.blue,
                         uzs: provider.balanceOf('card', 'UZS'),
@@ -80,7 +80,8 @@ class AccountsScreen extends StatelessWidget {
                               const Icon(Icons.swap_horiz_rounded,
                                   color: Colors.white, size: 20),
                               const SizedBox(width: 8),
-                              Text("O'tkazma / Ayirboshlash",
+                              Text(
+                                  "${provider.s('transfer')} / ${provider.s('exchange')}",
                                   style: k(15,
                                       w: FontWeight.w600, c: Colors.white)),
                             ],
@@ -105,6 +106,7 @@ class _TotalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -115,7 +117,7 @@ class _TotalCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Umumiy balans',
+          Text(s('total_balance'),
               style: k(13,
                   w: FontWeight.w500,
                   c: Colors.white.withValues(alpha: 0.85))),
@@ -123,7 +125,7 @@ class _TotalCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text("${Money.plain(uzs, currency: 'UZS')} so'm",
+            child: Text("${Money.plain(uzs, currency: 'UZS')} ${s('som')}",
                 style: k(28, w: FontWeight.w700, c: Colors.white)),
           ),
           if (usd != 0) ...[
@@ -154,6 +156,7 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     return KCard(
       radius: rCardLg,
       padding: const EdgeInsets.all(18),
@@ -167,12 +170,12 @@ class _AccountCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _line("So'm", "${Money.plain(uzs, currency: 'UZS')} so'm"),
+          _line(s('som_word'), "${Money.plain(uzs, currency: 'UZS')} ${s('som')}"),
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Divider(height: 1, thickness: 1, color: KColors.line),
           ),
-          _line('Dollar', Money.format(usd, 'USD')),
+          _line(s('dollar_word'), Money.format(usd, 'USD')),
         ],
       ),
     );

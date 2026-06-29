@@ -27,11 +27,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   late String _currency; // 'UZS' | 'USD'
   late DateTime _date;
 
-  static const _months = [
-    'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
-    'iyul', 'avgust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr',
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -110,6 +105,39 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     Navigator.of(context).pop();
   }
 
+  void _delete() {
+    final existing = widget.existing;
+    if (existing == null) return;
+    final s = context.read<AppProvider>().s;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: KColors.card,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title:
+            Text(s('delete_transaction'), style: k(16, w: FontWeight.w700)),
+        content: Text(s('delete_transaction_confirm'),
+            style: k(13.5, c: KColors.sub)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(s('cancel'), style: k(14, c: KColors.sub)),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<AppProvider>().deleteTransaction(existing.id);
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            child: Text(s('delete'),
+                style: k(14, w: FontWeight.w600, c: KColors.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -121,12 +149,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   String get _dateLabel {
+    final s = context.read<AppProvider>().s;
     final now = DateTime.now();
-    final label = '${_date.day} ${_months[_date.month - 1]}';
+    final label = '${_date.day} ${s.months[_date.month - 1]}';
     if (_date.year == now.year &&
         _date.month == now.month &&
         _date.day == now.day) {
-      return 'Bugun, $label';
+      return '${s('today')}, $label';
     }
     return label;
   }
@@ -163,11 +192,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(widget.existing != null ? 'Amalni tahrirlash' : 'Yangi amal',
+                      child: Text(
+                          widget.existing != null
+                              ? s('edit_transaction')
+                              : s('new_transaction'),
                           style: k(17, w: FontWeight.w600)),
                     ),
                   ),
-                  const SizedBox(width: 40),
+                  if (widget.existing != null)
+                    GestureDetector(
+                      onTap: _delete,
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: KColors.dangerBg,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.delete_outline_rounded,
+                            size: 22, color: KColors.danger),
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 40),
                 ],
               ),
             ),
@@ -230,7 +277,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                         width: 1.2),
                                   ),
                                   child: Text(
-                                    cur == 'USD' ? '\$' : "so'm",
+                                    cur == 'USD' ? '\$' : s('som'),
                                     style: k(13,
                                         w: FontWeight.w600,
                                         c: _currency == cur
@@ -251,8 +298,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     padding: kPad,
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child:
-                          Text('Kategoriya', style: k(13, w: FontWeight.w600, c: KColors.sub)),
+                      child: Text(s('category'),
+                          style: k(13, w: FontWeight.w600, c: KColors.sub)),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -283,8 +330,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           _DetailRow(
                             icon: Icons.credit_card_rounded,
                             iconColor: KColors.primary,
-                            label: 'Hisob',
-                            value: _place == 'card' ? 'Karta' : 'Naqd',
+                            label: s('account'),
+                            value: _place == 'card'
+                                ? s('wallet_card')
+                                : s('wallet_cash'),
                             onTap: () => setState(
                                 () => _place = _place == 'card' ? 'cash' : 'card'),
                           ),
@@ -293,7 +342,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           _DetailRow(
                             icon: Icons.calendar_today_rounded,
                             iconColor: KColors.blue,
-                            label: 'Sana',
+                            label: s('date'),
                             value: _dateLabel,
                             onTap: _pickDate,
                           ),
@@ -323,7 +372,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     borderRadius: BorderRadius.circular(rBtn),
                     boxShadow: kGreenShadow,
                   ),
-                  child: Text('Saqlash',
+                  child: Text(s('save'),
                       style: k(16, w: FontWeight.w600, c: Colors.white)),
                 ),
               ),
@@ -342,6 +391,7 @@ class _TypeToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     Widget seg(String value, String label, Color activeColor) {
       final active = type == value;
       return Expanded(
@@ -369,13 +419,15 @@ class _TypeToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFFE6E9EF),
+        color: KColors.isDark
+            ? const Color(0xFF23262F)
+            : const Color(0xFFE6E9EF),
         borderRadius: BorderRadius.circular(rTile),
       ),
       child: Row(
         children: [
-          seg('expense', 'Chiqim', KColors.danger),
-          seg('income', 'Kirim', KColors.primary),
+          seg('expense', s('chiqim'), KColors.danger),
+          seg('income', s('kirim'), KColors.primary),
         ],
       ),
     );
@@ -508,7 +560,7 @@ void showTransferSheet(BuildContext context, AppProvider provider) {
                 ),
               ),
               const SizedBox(height: 18),
-              Text("Hamyonlar orasi o'tkazma", style: k(18, w: FontWeight.w700)),
+              Text(provider.s('transfer'), style: k(18, w: FontWeight.w700)),
               const SizedBox(height: 16),
               TextField(
                 controller: amountCtrl,
@@ -518,8 +570,8 @@ void showTransferSheet(BuildContext context, AppProvider provider) {
                 inputFormatters: Money.amountFormatters,
                 style: k(16),
                 decoration: InputDecoration(
-                  labelText: 'Summa',
-                  suffixText: "so'm",
+                  labelText: provider.s('amount'),
+                  suffixText: provider.s('som'),
                   filled: true,
                   fillColor: KColors.bg,
                   border: OutlineInputBorder(
@@ -529,7 +581,8 @@ void showTransferSheet(BuildContext context, AppProvider provider) {
                 ),
               ),
               const SizedBox(height: 16),
-              Text('Qayerdan', style: k(13, w: FontWeight.w600, c: KColors.sub)),
+              Text(provider.s('from_wallet'),
+                  style: k(13, w: FontWeight.w600, c: KColors.sub)),
               const SizedBox(height: 8),
               _PlaceSeg(
                 value: from,
@@ -539,7 +592,8 @@ void showTransferSheet(BuildContext context, AppProvider provider) {
                 }),
               ),
               const SizedBox(height: 12),
-              Text('Qayerga', style: k(13, w: FontWeight.w600, c: KColors.sub)),
+              Text(provider.s('to_wallet'),
+                  style: k(13, w: FontWeight.w600, c: KColors.sub)),
               const SizedBox(height: 8),
               _PlaceSeg(
                 value: to,
@@ -576,7 +630,7 @@ void showTransferSheet(BuildContext context, AppProvider provider) {
                     gradient: kGradient,
                     borderRadius: BorderRadius.circular(rBtn),
                   ),
-                  child: Text('Saqlash',
+                  child: Text(provider.s('save'),
                       style: k(16, w: FontWeight.w600, c: Colors.white)),
                 ),
               ),
@@ -596,6 +650,7 @@ class _PlaceSeg extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     Widget seg(String v, String label, IconData icon) {
       final active = v == value;
       return Expanded(
@@ -634,8 +689,8 @@ class _PlaceSeg extends StatelessWidget {
 
     return Row(
       children: [
-        seg('cash', 'Naqd', Icons.payments_rounded),
-        seg('card', 'Karta', Icons.credit_card_rounded),
+        seg('cash', s('wallet_cash'), Icons.payments_rounded),
+        seg('card', s('wallet_card'), Icons.credit_card_rounded),
       ],
     );
   }

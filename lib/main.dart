@@ -27,8 +27,45 @@ void main() async {
   );
 }
 
-class KisaApp extends StatelessWidget {
+class KisaApp extends StatefulWidget {
   const KisaApp({super.key});
+
+  @override
+  State<KisaApp> createState() => _KisaAppState();
+}
+
+class _KisaAppState extends State<KisaApp> with WidgetsBindingObserver {
+  final _navKey = GlobalKey<NavigatorState>();
+  bool _wasPaused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _wasPaused = true;
+    } else if (state == AppLifecycleState.resumed && _wasPaused) {
+      _wasPaused = false;
+      final ctx = _navKey.currentContext;
+      if (ctx == null) return;
+      final provider = ctx.read<AppProvider>();
+      if (provider.pinEnabled && !LockScreen.isShowing) {
+        _navKey.currentState?.push(MaterialPageRoute(
+            builder: (_) => const LockScreen(asOverlay: true)));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +76,7 @@ class KisaApp extends StatelessWidget {
         final brightness =
             provider.isDarkMode ? Brightness.dark : Brightness.light;
         return MaterialApp(
+          navigatorKey: _navKey,
           debugShowCheckedModeBanner: false,
           title: 'KiSA',
           theme: ThemeData(
@@ -143,11 +181,12 @@ class _KisaNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     final items = <(IconData, String)>[
-      (Icons.home_rounded, 'Asosiy'),
-      (Icons.bar_chart_rounded, 'Statistika'),
-      (Icons.credit_card_rounded, 'Byudjet'),
-      (Icons.person_rounded, 'Profil'),
+      (Icons.home_rounded, s('nav_home')),
+      (Icons.bar_chart_rounded, s('nav_stats')),
+      (Icons.credit_card_rounded, s('nav_budget')),
+      (Icons.person_rounded, s('nav_profile')),
     ];
 
     Widget tab(int i) {

@@ -26,7 +26,7 @@ class SecurityScreen extends StatelessWidget {
                       const KBackButton(),
                       Expanded(
                         child: Center(
-                          child: Text('Xavfsizlik',
+                          child: Text(provider.s('security'),
                               style: k(17, w: FontWeight.w600)),
                         ),
                       ),
@@ -44,7 +44,7 @@ class SecurityScreen extends StatelessWidget {
                         _toggle(
                           Icons.lock_outline_rounded,
                           KColors.primary,
-                          'PIN-kod',
+                          provider.s('pin_code'),
                           provider.pinEnabled,
                           (v) async {
                             if (v) {
@@ -64,7 +64,7 @@ class SecurityScreen extends StatelessWidget {
                           _row(
                             Icons.password_rounded,
                             KColors.blue,
-                            "PIN-kodni o'zgartirish",
+                            provider.s('change_pin'),
                             onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute(
                                     builder: (_) => const PinSetupScreen())),
@@ -77,7 +77,7 @@ class SecurityScreen extends StatelessWidget {
                           _toggle(
                             Icons.fingerprint_rounded,
                             KColors.purple,
-                            'Face ID / Touch ID',
+                            provider.s('biometric'),
                             provider.biometricEnabled,
                             (v) => provider.setBiometric(v),
                           ),
@@ -91,8 +91,8 @@ class SecurityScreen extends StatelessWidget {
                   padding: kPad,
                   child: Text(
                     provider.pinEnabled
-                        ? 'Ilova har ochilganda PIN-kod so\'raydi.'
-                        : 'PIN-kod yoqilsa, ilova ochilganda kod so\'raladi.',
+                        ? provider.s('security_hint_on')
+                        : provider.s('security_hint_off'),
                     style: k(12.5, c: KColors.sub, height: 1.4),
                   ),
                 ),

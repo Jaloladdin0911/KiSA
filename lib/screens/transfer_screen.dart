@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/transaction_model.dart';
 import '../services/app_provider.dart';
+import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 
@@ -39,6 +40,8 @@ class _TransferScreenState extends State<TransferScreen> {
     super.dispose();
   }
 
+  AppStrings get s => context.read<AppProvider>().s;
+
   String _curLabel(String c) => Money.symbols[c] ?? c;
 
   /// "Berasiz" summasidan CBU kursi bo'yicha "Olasiz"ni hisoblaydi.
@@ -62,7 +65,7 @@ class _TransferScreenState extends State<TransferScreen> {
     if (_mode == 'transfer') {
       final amount = Money.parse(_amount.text);
       if (amount == null || amount <= 0 || _from == _to) {
-        _err(_from == _to ? 'Boshqa hamyon tanlang' : 'Summani kiriting');
+        _err(_from == _to ? s('same_wallet_error') : s('enter_amount'));
         return;
       }
       provider.addTransaction(TransactionModel(
@@ -85,8 +88,8 @@ class _TransferScreenState extends State<TransferScreen> {
       if (give == null || give <= 0 || get == null || get <= 0 ||
           _giveCur == _getCur) {
         _err(_giveCur == _getCur
-            ? 'Boshqa valyuta tanlang'
-            : 'Summalarni kiriting');
+            ? s('other_currency')
+            : s('enter_amount'));
         return;
       }
       provider.addTransaction(TransactionModel(
@@ -139,7 +142,7 @@ class _TransferScreenState extends State<TransferScreen> {
                   Expanded(
                     child: Center(
                       child: Text(
-                          _mode == 'transfer' ? "O'tkazma" : 'Ayirboshlash',
+                          _mode == 'transfer' ? s('transfer') : s('exchange'),
                           style: k(17, w: FontWeight.w600)),
                     ),
                   ),
@@ -153,9 +156,9 @@ class _TransferScreenState extends State<TransferScreen> {
             Padding(
               padding: kPad,
               child: _Seg(
-                options: const [
-                  ('transfer', "O'tkazma"),
-                  ('exchange', 'Ayirboshlash'),
+                options: [
+                  ('transfer', s('transfer')),
+                  ('exchange', s('exchange')),
                 ],
                 value: _mode,
                 onChanged: (v) => setState(() => _mode = v),
@@ -184,7 +187,7 @@ class _TransferScreenState extends State<TransferScreen> {
                     borderRadius: BorderRadius.circular(rBtn),
                     boxShadow: kGreenShadow,
                   ),
-                  child: Text('Saqlash',
+                  child: Text(s('save'),
                       style: k(16, w: FontWeight.w600, c: Colors.white)),
                 ),
               ),
@@ -196,19 +199,19 @@ class _TransferScreenState extends State<TransferScreen> {
   }
 
   List<Widget> _transferBody() => [
-        _label('Summa'),
+        _label(s('amount')),
         _amountField(_amount, _curLabel(_currency)),
         const SizedBox(height: 18),
-        _label('Valyuta'),
+        _label(s('currency')),
         _Seg(
-          options: const [('UZS', "so'm"), ('USD', '\$')],
+          options: [('UZS', s('som')), ('USD', '\$')],
           value: _currency,
           onChanged: (v) => setState(() => _currency = v),
         ),
         const SizedBox(height: 18),
-        _label('Qayerdan'),
+        _label(s('from_wallet')),
         _Seg(
-          options: const [('cash', 'Naqd'), ('card', 'Karta')],
+          options: [('cash', s('wallet_cash')), ('card', s('wallet_card'))],
           value: _from,
           onChanged: (v) => setState(() {
             _from = v;
@@ -216,9 +219,9 @@ class _TransferScreenState extends State<TransferScreen> {
           }),
         ),
         const SizedBox(height: 12),
-        _label('Qayerga'),
+        _label(s('to_wallet')),
         _Seg(
-          options: const [('cash', 'Naqd'), ('card', 'Karta')],
+          options: [('cash', s('wallet_cash')), ('card', s('wallet_card'))],
           value: _to,
           onChanged: (v) => setState(() {
             _to = v;
@@ -230,11 +233,11 @@ class _TransferScreenState extends State<TransferScreen> {
   List<Widget> _exchangeBody() {
     final rate = context.read<AppProvider>().usdRate;
     return [
-      _label('Berasiz'),
+      _label(s('you_give')),
       _amountField(_give, _curLabel(_giveCur), onChanged: (_) => _applyRate()),
       const SizedBox(height: 8),
       _Seg(
-        options: const [('UZS', "so'm"), ('USD', '\$')],
+        options: [('UZS', s('som')), ('USD', '\$')],
         value: _giveCur,
         onChanged: (v) {
           setState(() {
@@ -246,18 +249,18 @@ class _TransferScreenState extends State<TransferScreen> {
       ),
       const SizedBox(height: 6),
       _Seg(
-        options: const [('cash', 'Naqd'), ('card', 'Karta')],
+        options: [('cash', s('wallet_cash')), ('card', s('wallet_card'))],
         value: _givePlace,
         onChanged: (v) => setState(() => _givePlace = v),
       ),
       const SizedBox(height: 16),
       Center(child: Icon(Icons.south_rounded, color: KColors.mut)),
       const SizedBox(height: 16),
-      _label('Olasiz'),
+      _label(s('you_get')),
       _amountField(_get, _curLabel(_getCur)),
       const SizedBox(height: 8),
       _Seg(
-        options: const [('UZS', "so'm"), ('USD', '\$')],
+        options: [('UZS', s('som')), ('USD', '\$')],
         value: _getCur,
         onChanged: (v) {
           setState(() {
@@ -269,14 +272,14 @@ class _TransferScreenState extends State<TransferScreen> {
       ),
       const SizedBox(height: 6),
       _Seg(
-        options: const [('cash', 'Naqd'), ('card', 'Karta')],
+        options: [('cash', s('wallet_cash')), ('card', s('wallet_card'))],
         value: _getPlace,
         onChanged: (v) => setState(() => _getPlace = v),
       ),
       if (rate > 0) ...[
         const SizedBox(height: 14),
         Center(
-          child: Text('CBU kursi: 1 \$ = ${Money.format(rate, 'UZS')}',
+          child: Text('${s('cbu_rate')}: 1 \$ = ${Money.format(rate, 'UZS')}',
               style: k(12, c: KColors.mut)),
         ),
       ],

@@ -44,7 +44,7 @@ class GoalsScreen extends StatelessWidget {
                       const KBackButton(),
                       Expanded(
                         child: Center(
-                          child: Text('Maqsadlar',
+                          child: Text(provider.s('goals'),
                               style: k(17, w: FontWeight.w600)),
                         ),
                       ),
@@ -68,7 +68,7 @@ class GoalsScreen extends StatelessWidget {
                         padding: kPad,
                         child: Align(
                           alignment: Alignment.centerLeft,
-                          child: Text('Faol maqsadlar',
+                          child: Text(provider.s('active_goals'),
                               style: k(15, w: FontWeight.w600)),
                         ),
                       ),
@@ -78,7 +78,7 @@ class GoalsScreen extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(top: 40),
                           child: Center(
-                            child: Text("Hali maqsad yo'q",
+                            child: Text(provider.s('no_goals_yet'),
                                 style: k(14, c: KColors.mut)),
                           ),
                         )
@@ -146,7 +146,7 @@ class GoalsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 18),
-                  Text('Yangi maqsad', style: k(18, w: FontWeight.w700)),
+                  Text(provider.s('new_goal'), style: k(18, w: FontWeight.w700)),
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 50,
@@ -181,13 +181,13 @@ class GoalsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _Field(controller: titleCtrl, label: 'Maqsad nomi'),
+                  _Field(controller: titleCtrl, label: provider.s('goal_name')),
                   const SizedBox(height: 12),
                   _Field(
                       controller: amountCtrl,
-                      label: 'Maqsad summasi',
+                      label: provider.s('goal_amount'),
                       number: true,
-                      suffix: "so'm"),
+                      suffix: provider.s('som')),
                   const SizedBox(height: 12),
                   GestureDetector(
                     onTap: () async {
@@ -211,7 +211,8 @@ class GoalsScreen extends StatelessWidget {
                           Icon(Icons.calendar_today_rounded,
                               size: 18, color: KColors.sub),
                           const SizedBox(width: 12),
-                          Text('Muddat: ${DateFmt.short(deadline)}',
+                          Text(
+                              '${provider.s('goal_deadline')}: ${DateFmt.short(deadline)}',
                               style: k(14)),
                         ],
                       ),
@@ -219,7 +220,7 @@ class GoalsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   _PrimaryButton(
-                    label: 'Yaratish',
+                    label: provider.s('create'),
                     onTap: () {
                       final amount = Money.parse(amountCtrl.text);
                       if (titleCtrl.text.trim().isEmpty ||
@@ -261,14 +262,18 @@ class GoalsScreen extends StatelessWidget {
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20)),
         title: Text(goal.title, style: k(16, w: FontWeight.w700)),
-        content: _Field(controller: ctrl, label: 'Summa', number: true, suffix: "so'm"),
+        content: _Field(
+            controller: ctrl,
+            label: provider.s('amount'),
+            number: true,
+            suffix: provider.s('som')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Bekor', style: k(14, c: KColors.sub)),
+            child: Text(provider.s('cancel'), style: k(14, c: KColors.sub)),
           ),
           _PrimaryButton(
-            label: "Qo'shish",
+            label: provider.s('add_money'),
             compact: true,
             onTap: () {
               final amount = Money.parse(ctrl.text);
@@ -293,6 +298,7 @@ class _Summary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -306,7 +312,7 @@ class _Summary extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Jami jamg'arma",
+                Text(s('total_savings'),
                     style: k(13, w: FontWeight.w500, c: const Color(0xFF9AA0AE))),
                 const SizedBox(height: 6),
                 Row(
@@ -323,7 +329,7 @@ class _Summary extends StatelessWidget {
                     const SizedBox(width: 6),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 2),
-                      child: Text("so'm",
+                      child: Text(s('som'),
                           style: k(13,
                               w: FontWeight.w500,
                               c: const Color(0xFF9AA0AE))),
@@ -331,7 +337,7 @@ class _Summary extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('$active ta maqsad sari yo\'lda',
+                Text('$active ${s('goals_on_track')}',
                     style: k(12,
                         w: FontWeight.w500, c: const Color(0xFF34D399))),
               ],
@@ -366,6 +372,7 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppProvider>().s;
     final pct = goal.progress;
     return Dismissible(
       key: Key(goal.id),
@@ -418,12 +425,12 @@ class _GoalCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Text("so'm", style: k(12, c: KColors.mut)),
+                      Text(s('som'), style: k(12, c: KColors.mut)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(pct * 100).round()}% · ${Money.plain(goal.targetAmount, currency: 'UZS')} so\'m maqsad',
+                    '${(pct * 100).round()}% · ${Money.plain(goal.targetAmount, currency: 'UZS')} ${s('som')} ${s('goal_suffix')}',
                     style: k(11.5, w: FontWeight.w500, c: KColors.mut),
                   ),
                   const SizedBox(height: 8),
