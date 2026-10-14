@@ -11,6 +11,10 @@ class RecurringModel {
   final String frequency; // 'daily' | 'weekly' | 'monthly'
   final DateTime nextDate;
 
+  /// Oylik to'lovning asl kuni (1..31). Qisqa oylarda oyning oxirgi kuniga
+  /// tushadi, keyingi oyda yana asl kunga qaytadi (31-yan → 28-fev → 31-mar).
+  final int anchorDay;
+
   RecurringModel({
     required this.id,
     required this.type,
@@ -21,17 +25,21 @@ class RecurringModel {
     required this.note,
     required this.frequency,
     required this.nextDate,
-  });
+    int? anchorDay,
+  }) : anchorDay = anchorDay ?? nextDate.day;
 
   /// Keyingi takrorlanish sanasi.
   DateTime advance(DateTime from) {
     switch (frequency) {
       case 'daily':
-        return from.add(const Duration(days: 1));
+        return DateTime(from.year, from.month, from.day + 1);
       case 'weekly':
-        return from.add(const Duration(days: 7));
+        return DateTime(from.year, from.month, from.day + 7);
       default: // monthly
-        return DateTime(from.year, from.month + 1, from.day);
+        // DateTime(y, m + 2, 0) — keyingi oyning oxirgi kuni
+        final lastDay = DateTime(from.year, from.month + 2, 0).day;
+        final day = anchorDay < lastDay ? anchorDay : lastDay;
+        return DateTime(from.year, from.month + 1, day);
     }
   }
 
@@ -45,6 +53,7 @@ class RecurringModel {
         'note': note,
         'frequency': frequency,
         'nextDate': nextDate.toIso8601String(),
+        'anchorDay': anchorDay,
       };
 
   factory RecurringModel.fromJson(Map<String, dynamic> m) => RecurringModel(
@@ -57,6 +66,7 @@ class RecurringModel {
         note: m['note'] ?? '',
         frequency: m['frequency'] ?? 'monthly',
         nextDate: DateTime.parse(m['nextDate']),
+        anchorDay: m['anchorDay'] as int?,
       );
 
   RecurringModel copyWith({DateTime? nextDate}) => RecurringModel(
@@ -69,5 +79,6 @@ class RecurringModel {
         note: note,
         frequency: frequency,
         nextDate: nextDate ?? this.nextDate,
+        anchorDay: anchorDay,
       );
 }

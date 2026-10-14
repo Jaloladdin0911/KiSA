@@ -5,8 +5,14 @@
 # OLDINDAN KERAK (DEPLOYMENT.md ga qarang):
 #   1. Apple Developer Program a'zoligi ($99/yil)
 #   2. App Store Connect da ilova yaratilgan (Bundle ID: com.kisa.finance)
-#   3. App Store Connect API key Codemagic UI ga "KisaAscApiKey" nomi bilan ulangan
+#   3. App Store Connect API key Codemagic UI ga "Codemagic Key" nomi bilan ulangan
 #   4. Quyidagi APP_STORE_APPLE_ID raqamini o'z ilovangiznikiga almashtiring
+#   5. Codemagic UI → Environment variables → "ios_signing" guruhiga
+#      CERTIFICATE_PRIVATE_KEY (Secure) qo'shilgan. Bir marta yarating:
+#        openssl genrsa -out cert_key.pem 2048
+#      va cert_key.pem ichidagi matnni to'liq qo'ying. Shu kalit doimiy
+#      bo'lgani uchun har build'da YANGI sertifikat yaratilmaydi — Apple
+#      Distribution sertifikatlari sonini cheklaydi (bir necha dona).
 
 workflows:
   ios-testflight:
@@ -28,6 +34,8 @@ workflows:
       app_store_connect: "Codemagic Key"
 
     environment:
+      groups:
+        - ios_signing # CERTIFICATE_PRIVATE_KEY
       vars:
         # App Store Connect dagi ilovaning Apple ID raqami
         APP_STORE_APPLE_ID: 6780032147
@@ -40,22 +48,22 @@ workflows:
       - name: Flutter paketlarini olish
         script: flutter pub get
 
+      - name: Analiz va testlar
+        # Xato bo'lsa build shu yerda to'xtaydi — TestFlight'ga buzuq versiya ketmaydi
+        script: |
+          flutter analyze
+          flutter test
+
       - name: Imzolash sertifikat va profilini yaratish/olish
         script: |
           keychain initialize
-          # 1) Yangi RSA maxfiy kalit yaratamiz
-          openssl genrsa -out /tmp/cert_key.pem 2048
-          # 2) Shu kalit bilan yangi Apple Distribution sertifikat yaratamiz
-          app-store-connect create-certificate \
-            --type IOS_DISTRIBUTION \
-            --certificate-key=@file:/tmp/cert_key.pem \
-            --save
-          # 3) Shu kalit bilan App Store provisioning profilini yaratamiz/olamiz
+          # Doimiy kalit bilan mavjud sertifikat va profilni olamiz; faqat
+          # birinchi marta (yo'q bo'lsa) yangisi yaratiladi
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
-            --certificate-key=@file:/tmp/cert_key.pem \
+            --certificate-key="$CERTIFICATE_PRIVATE_KEY" \
             --create
-          # 4) Sertifikatni keychain'ga qo'shib, profilni Xcode loyihasiga qo'llaymiz
+          # Sertifikatni keychain'ga qo'shib, profilni Xcode loyihasiga qo'llaymiz
           keychain add-certificates
           xcode-project use-profiles
 

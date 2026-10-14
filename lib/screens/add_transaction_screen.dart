@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../models/transaction_model.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/calc.dart';
 import '../utils/categories.dart';
-import '../utils/formatters.dart';
 import '../widgets/kit.dart';
+import '../widgets/movement_sheet.dart';
+import 'categories_screen.dart';
 
 /// Amal qo'shish / tahrirlash — KISA_DESIGN_SPEC.md, Section 7.
 /// To'liq ekran: Chiqim/Kirim, summa display, kategoriya, raqamli klaviatura.
@@ -26,11 +28,19 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   late String _place; // 'cash' | 'card'
   late String _currency; // 'UZS' | 'USD'
   late DateTime _date;
+  late final TextEditingController _note;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
+    _note = TextEditingController(text: e?.note ?? '');
     _type = e?.type ?? widget.initialType ?? 'expense';
     if (_type != 'income' && _type != 'expense') _type = 'expense';
     _amount = e != null ? _trimAmount(e.amount) : '';
@@ -48,13 +58,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   List<String> _catKeys() {
     final s = context.read<AppProvider>().s;
-    return _type == 'income' ? s.incomeCategoryKeys : s.expenseCategoryKeys;
+    final base =
+        _type == 'income' ? s.incomeCategoryKeys : s.expenseCategoryKeys;
+    // Tahrirlanayotgan amal kategoriyasi ro'yxatda bo'lmasa (masalan
+    // arxivlangan) — uni qo'shib qo'yamiz, aks holda jimgina almashib qolardi
+    final e = widget.existing;
+    if (e != null && e.type == _type && !base.contains(e.category)) {
+      return [...base, e.category];
+    }
+    return base;
   }
 
   Color get _accent => _type == 'expense' ? KColors.danger : KColors.primary;
 
-  String _fmt(String raw) {
-    if (raw.isEmpty) return '0';
+  /// Bitta sonni minglik bo'shliqlar bilan: "1250000.5" → "1 250 000.5"
+  String _fmtNum(String raw) {
     final parts = raw.split('.');
     final intPart = parts[0].isEmpty ? '0' : parts[0];
     final grouped = intPart.replaceAllMapped(
@@ -62,27 +80,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     return parts.length > 1 ? '$grouped.${parts[1]}' : grouped;
   }
 
-  void _tap(String key) {
-    setState(() {
-      if (key == '⌫') {
-        if (_amount.isNotEmpty) {
-          _amount = _amount.substring(0, _amount.length - 1);
-        }
-      } else if (key == '.') {
-        if (!_amount.contains('.') && _amount.isNotEmpty) _amount += '.';
+  /// Butun ifodani chiroyli ko'rsatish: "12000+3500" → "12 000 + 3 500"
+  String _fmt(String expr) {
+    if (expr.isEmpty) return '0';
+    final out = StringBuffer();
+    var buf = '';
+    for (final ch in expr.split('')) {
+      if (Calc.isOp(ch)) {
+        out.write('${_fmtNum(buf)} $ch ');
+        buf = '';
       } else {
-        if (_amount.replaceAll('.', '').length >= 12) return;
-        if (_amount == '0') {
-          _amount = key;
-        } else {
-          _amount += key;
-        }
+        buf += ch;
       }
-    });
+    }
+    if (buf.isNotEmpty) out.write(_fmtNum(buf));
+    return out.toString().trimRight();
   }
 
+  void _tap(String key) {
+    setState(() => _amount = Calc.press(_amount, key));
+  }
   void _save() {
-    final amount = double.tryParse(_amount);
+    // Ifoda bo'lsa (12000+3500) — natija saqlanadi
+    final amount = Calc.evaluate(_amount);
     if (amount == null || amount <= 0) return;
     final provider = context.read<AppProvider>();
     final tx = TransactionModel(
@@ -93,59 +113,80 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       amount: amount,
       category: _category,
       date: _date,
-      note: widget.existing?.note ?? '',
+      note: _note.text.trim(),
       place: _place,
       currency: _currency,
     );
+    final alert = widget.existing == null ? _budgetAlert(provider, tx) : null;
     if (widget.existing != null) {
       provider.updateTransaction(tx);
     } else {
       provider.addTransaction(tx);
     }
+    if (alert != null) {
+      // Root messenger — xabar oldingi ekranda ko'rinadi
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Row(
+            children: [
+              Icon(alert.$2 ? Icons.error_rounded : Icons.warning_amber_rounded,
+                  color: alert.$2 ? const Color(0xFFFCA5A5) : const Color(0xFFFCD34D),
+                  size: 20),
+              const SizedBox(width: 10),
+              Expanded(child: Text(alert.$1)),
+            ],
+          ),
+        ));
+    }
     Navigator.of(context).pop();
+  }
+
+  /// Yangi chiqim shu oydagi kategoriya byudjetini 80% yoki 100% chegaradan
+  /// o'tkazsa — ogohlantirish matni va "oshib ketdimi" belgisi.
+  (String, bool)? _budgetAlert(AppProvider p, TransactionModel tx) {
+    if (tx.type != 'expense') return null;
+    final limit = p.categoryBudgets[tx.category];
+    final now = DateTime.now();
+    if (limit == null || limit <= 0) return null;
+    if (tx.date.year != now.year || tx.date.month != now.month) return null;
+    final before = p.categorySpentThisMonth(tx.category);
+    final after = before + p.toUzs(tx.amount, tx.currency);
+    final s = p.s;
+    final name = s.cat(tx.category);
+    if (before < limit && after >= limit) {
+      return (s('budget_over').replaceAll('{cat}', name), true);
+    }
+    if (before < limit * 0.8 && after >= limit * 0.8) {
+      final pct = (after / limit * 100).round();
+      return (
+        s('budget_warn').replaceAll('{cat}', name).replaceAll('{p}', '$pct'),
+        false
+      );
+    }
+    return null;
   }
 
   void _delete() {
     final existing = widget.existing;
     if (existing == null) return;
-    final s = context.read<AppProvider>().s;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: KColors.card,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title:
-            Text(s('delete_transaction'), style: k(16, w: FontWeight.w700)),
-        content: Text(s('delete_transaction_confirm'),
-            style: k(13.5, c: KColors.sub)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(s('cancel'), style: k(14, c: KColors.sub)),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<AppProvider>().deleteTransaction(existing.id);
-              Navigator.pop(ctx);
-              Navigator.pop(context);
-            },
-            child: Text(s('delete'),
-                style: k(14, w: FontWeight.w600, c: KColors.danger)),
-          ),
-        ],
-      ),
-    );
+    // Tasdiq o'rniga — darhol o'chirish va "Bekor qilish" imkoniyati
+    deleteWithUndo(context, existing);
+    Navigator.pop(context);
   }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
       initialDate: _date,
-      firstDate: DateTime(2020),
+      firstDate: _date.year < 2020 ? DateTime(_date.year) : DateTime(2020),
       lastDate: DateTime.now(),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked == null) return;
+    // Faqat kunni almashtiramiz — vaqt (soat:daqiqa) saqlanadi, aks holda
+    // amal 00:00 ga tushib, kun ichidagi tartib buzilardi
+    setState(() => _date = DateTime(picked.year, picked.month, picked.day,
+        _date.hour, _date.minute, _date.second));
   }
 
   String get _dateLabel {
@@ -167,7 +208,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     if (!keys.contains(_category)) _category = keys.first;
 
     return Scaffold(
-      backgroundColor: KColors.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
@@ -176,19 +217,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Row(
                 children: [
-                  GestureDetector(
+                  KCircleButton(
+                    icon: Icons.close_rounded,
                     onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: KColors.card,
-                        shape: BoxShape.circle,
-                        boxShadow: kSoftShadow,
-                      ),
-                      child: Icon(Icons.close_rounded,
-                          size: 22, color: KColors.ink),
-                    ),
                   ),
                   Expanded(
                     child: Center(
@@ -200,18 +231,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ),
                   ),
                   if (widget.existing != null)
-                    GestureDetector(
+                    KCircleButton(
+                      icon: Icons.delete_outline_rounded,
+                      color: KColors.danger,
+                      bg: KColors.dangerBg,
+                      label: s('delete'),
                       onTap: _delete,
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: const BoxDecoration(
-                          color: KColors.dangerBg,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.delete_outline_rounded,
-                            size: 22, color: KColors.danger),
-                      ),
                     )
                   else
                     const SizedBox(width: 40),
@@ -246,11 +271,53 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                           fit: BoxFit.scaleDown,
                           child: Padding(
                             padding: kPad,
-                            child: Text(
-                              '${_type == 'expense' ? '-' : '+'} ${_fmt(_amount)}',
-                              style: k(40, w: FontWeight.w700, c: _accent),
+                            // Har bir raqam kiritilganda summa yengil "sakraydi",
+                            // tur almashganda rang silliq o'zgaradi
+                            child: TweenAnimationBuilder<double>(
+                              key: ValueKey(_amount),
+                              tween: Tween(begin: 1.06, end: 1.0),
+                              duration: KMotion.medium,
+                              curve: KMotion.spring,
+                              builder: (_, sc, child) =>
+                                  Transform.scale(scale: sc, child: child),
+                              child: AnimatedDefaultTextStyle(
+                                duration: KMotion.medium,
+                                // Ifoda yozilayotganda kichrayadi, natija pastda
+                                style: k(Calc.hasOp(_amount) ? 30 : 44,
+                                    w: FontWeight.w700, c: _accent),
+                                child: Text(
+                                  '${_type == 'expense' ? '-' : '+'} ${_fmt(_amount)}',
+                                ),
+                              ),
                             ),
                           ),
+                        ),
+                        // Kalkulyator natijasi — bosilsa ifoda natija bilan almashadi
+                        AnimatedSize(
+                          duration: KMotion.medium,
+                          curve: KMotion.emphasized,
+                          child: Calc.hasOp(_amount) &&
+                                  Calc.evaluate(_amount) != null
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: KPressable(
+                                    onTap: () => _tap('='),
+                                    child: Glass(
+                                      color: _accent.withValues(alpha: 0.12),
+                                      shadow: const [],
+                                      borderRadius:
+                                          BorderRadius.circular(rCard),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 6),
+                                      child: Text(
+                                        '= ${_fmtNum(Calc.trim(Calc.evaluate(_amount)!))}',
+                                        style: k(16,
+                                            w: FontWeight.w700, c: _accent),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox(width: double.infinity),
                         ),
                         const SizedBox(height: 8),
                         // Valyuta tanlash (so'm / $)
@@ -291,7 +358,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 18),
+
+                  // Keypad — summadan darhol keyin, kalkulyator uslubida
+                  _Keypad(onTap: _tap, accent: _accent),
                   const SizedBox(height: 22),
+                  Divider(height: 1, thickness: 1, color: KColors.line),
+                  const SizedBox(height: 20),
 
                   // Category
                   Padding(
@@ -308,14 +381,26 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       padding: kPad,
-                      itemCount: keys.length,
+                      itemCount: keys.length + 1,
                       separatorBuilder: (_, __) => const SizedBox(width: 14),
-                      itemBuilder: (_, i) => _CatChip(
-                        catKey: keys[i],
-                        label: s.cat(keys[i]),
-                        selected: keys[i] == _category,
-                        onTap: () => setState(() => _category = keys[i]),
-                      ),
+                      itemBuilder: (_, i) => i == keys.length
+                          // Oxirida — o'z kategoriyasini yaratish
+                          ? _NewCatChip(
+                              label: s('new_category'),
+                              onTap: () async {
+                                final key =
+                                    await showCategoryCreator(context, _type);
+                                if (key != null && mounted) {
+                                  setState(() => _category = key);
+                                }
+                              },
+                            )
+                          : _CatChip(
+                              catKey: keys[i],
+                              label: s.cat(keys[i]),
+                              selected: keys[i] == _category,
+                              onTap: () => setState(() => _category = keys[i]),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -346,15 +431,42 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             value: _dateLabel,
                             onTap: _pickDate,
                           ),
+                          Divider(
+                              height: 1, thickness: 1, color: KColors.line),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 6),
+                            child: Row(
+                              children: [
+                                const KTintedIcon(
+                                    icon: Icons.notes_rounded,
+                                    color: KColors.orange,
+                                    size: 36,
+                                    circle: false),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _note,
+                                    maxLength: 80,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    style: k(14),
+                                    decoration: InputDecoration(
+                                      border: InputBorder.none,
+                                      counterText: '',
+                                      hintText: s('note_optional'),
+                                      hintStyle: k(14, c: KColors.mut),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-
-                  // Keypad
-                  _Keypad(onTap: _tap),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                 ],
               ),
             ),
@@ -362,20 +474,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             // Save
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: GestureDetector(
-                onTap: _save,
-                child: Container(
-                  height: 56,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: kGradient,
-                    borderRadius: BorderRadius.circular(rBtn),
-                    boxShadow: kGreenShadow,
-                  ),
-                  child: Text(s('save'),
-                      style: k(16, w: FontWeight.w600, c: Colors.white)),
-                ),
-              ),
+              child: KPrimaryButton(label: s('save'), onTap: _save),
             ),
           ],
         ),
@@ -392,44 +491,12 @@ class _TypeToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppProvider>().s;
-    Widget seg(String value, String label, Color activeColor) {
-      final active = type == value;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => onChanged(value),
-          behavior: HitTestBehavior.opaque,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: active ? KColors.card : Colors.transparent,
-              borderRadius: BorderRadius.circular(rTile - 3),
-              boxShadow: active ? kSoftShadow : null,
-            ),
-            child: Text(label,
-                style: k(15,
-                    w: active ? FontWeight.w600 : FontWeight.w500,
-                    c: active ? activeColor : KColors.sub)),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: KColors.isDark
-            ? const Color(0xFF23262F)
-            : const Color(0xFFE6E9EF),
-        borderRadius: BorderRadius.circular(rTile),
-      ),
-      child: Row(
-        children: [
-          seg('expense', s('chiqim'), KColors.danger),
-          seg('income', s('kirim'), KColors.primary),
-        ],
-      ),
+    return KSegmented(
+      options: [('expense', s('chiqim')), ('income', s('kirim'))],
+      colors: const [KColors.danger, KColors.primary],
+      value: type,
+      onChanged: onChanged,
+      height: 44,
     );
   }
 }
@@ -448,18 +515,22 @@ class _CatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = CategoryMeta.color(catKey);
-    return GestureDetector(
+    return KPressable(
       onTap: onTap,
+      scale: 0.88,
       child: SizedBox(
         width: 60,
         child: Column(
           children: [
-            Container(
+            AnimatedContainer(
+              duration: KMotion.medium,
+              curve: KMotion.spring,
               width: 56,
               height: 56,
+              transform: Matrix4.translationValues(0, selected ? -3 : 0, 0),
               decoration: BoxDecoration(
                 color: selected ? color : color.withValues(alpha: 0.13),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(selected ? 20 : 16),
                 boxShadow: selected
                     ? [
                         BoxShadow(
@@ -479,6 +550,42 @@ class _CatChip extends StatelessWidget {
                 style: k(11.5,
                     w: selected ? FontWeight.w600 : FontWeight.w500,
                     c: selected ? color : KColors.mut)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewCatChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _NewCatChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return KPressable(
+      onTap: onTap,
+      scale: 0.88,
+      child: SizedBox(
+        width: 60,
+        child: Column(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                    color: KColors.mut.withValues(alpha: 0.5), width: 1.4),
+              ),
+              child: Icon(Icons.add_rounded, size: 24, color: KColors.sub),
+            ),
+            const SizedBox(height: 6),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: k(11.5, w: FontWeight.w500, c: KColors.mut)),
           ],
         ),
       ),
@@ -511,8 +618,14 @@ class _DetailRow extends StatelessWidget {
             KTintedIcon(icon: icon, color: iconColor, size: 36, circle: false),
             const SizedBox(width: 12),
             Text(label, style: k(14, w: FontWeight.w500)),
-            const Spacer(),
-            Text(value, style: k(13, c: KColors.sub)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: k(13, c: KColors.sub)),
+            ),
             const SizedBox(width: 6),
             Icon(Icons.chevron_right_rounded,
                 size: 20, color: KColors.mut),
@@ -523,190 +636,20 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-// ── Hamyonlar orasi o'tkazma (Naqd ↔ Karta) ───────────────────────────────────
-
-void showTransferSheet(BuildContext context, AppProvider provider) {
-  String from = 'cash';
-  String to = 'card';
-  final amountCtrl = TextEditingController();
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: KColors.card,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (context, setM) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                      color: KColors.line,
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-              const SizedBox(height: 18),
-              Text(provider.s('transfer'), style: k(18, w: FontWeight.w700)),
-              const SizedBox(height: 16),
-              TextField(
-                controller: amountCtrl,
-                autofocus: true,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: Money.amountFormatters,
-                style: k(16),
-                decoration: InputDecoration(
-                  labelText: provider.s('amount'),
-                  suffixText: provider.s('som'),
-                  filled: true,
-                  fillColor: KColors.bg,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(rTile),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(provider.s('from_wallet'),
-                  style: k(13, w: FontWeight.w600, c: KColors.sub)),
-              const SizedBox(height: 8),
-              _PlaceSeg(
-                value: from,
-                onChanged: (v) => setM(() {
-                  from = v;
-                  if (to == from) to = v == 'cash' ? 'card' : 'cash';
-                }),
-              ),
-              const SizedBox(height: 12),
-              Text(provider.s('to_wallet'),
-                  style: k(13, w: FontWeight.w600, c: KColors.sub)),
-              const SizedBox(height: 8),
-              _PlaceSeg(
-                value: to,
-                onChanged: (v) => setM(() {
-                  to = v;
-                  if (from == to) from = v == 'cash' ? 'card' : 'cash';
-                }),
-              ),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: () {
-                  final amount = Money.parse(amountCtrl.text);
-                  if (amount == null || amount <= 0 || from == to) return;
-                  provider.addTransaction(TransactionModel(
-                    id: DateTime.now().millisecondsSinceEpoch.toString(),
-                    userId: provider.userId,
-                    type: 'transfer',
-                    amount: amount,
-                    category: 'transfer',
-                    date: DateTime.now(),
-                    note: '',
-                    place: from,
-                    currency: 'UZS',
-                    toPlace: to,
-                    toCurrency: 'UZS',
-                    toAmount: amount,
-                  ));
-                  Navigator.pop(ctx);
-                },
-                child: Container(
-                  height: 54,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: kGradient,
-                    borderRadius: BorderRadius.circular(rBtn),
-                  ),
-                  child: Text(provider.s('save'),
-                      style: k(16, w: FontWeight.w600, c: Colors.white)),
-                ),
-              ),
-              SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-class _PlaceSeg extends StatelessWidget {
-  final String value;
-  final ValueChanged<String> onChanged;
-  const _PlaceSeg({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<AppProvider>().s;
-    Widget seg(String v, String label, IconData icon) {
-      final active = v == value;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => onChanged(v),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            margin: const EdgeInsets.only(right: 8),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: active
-                  ? KColors.primary.withValues(alpha: 0.13)
-                  : KColors.bg,
-              borderRadius: BorderRadius.circular(rTile),
-              border: Border.all(
-                  color: active ? KColors.primary : Colors.transparent,
-                  width: 1.4),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon,
-                    size: 16,
-                    color: active ? KColors.primary : KColors.sub),
-                const SizedBox(width: 6),
-                Text(label,
-                    style: k(13.5,
-                        w: active ? FontWeight.w600 : FontWeight.w500,
-                        c: active ? KColors.primary : KColors.sub)),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Row(
-      children: [
-        seg('cash', s('wallet_cash'), Icons.payments_rounded),
-        seg('card', s('wallet_card'), Icons.credit_card_rounded),
-      ],
-    );
-  }
-}
-
+/// Kalkulyatorli klaviatura: 4 ustun — raqamlar va + − × ÷ amallari.
+/// Amal tugmalari tur rangida (chiqim — qizil, kirim — yashil) ajralib turadi.
 class _Keypad extends StatelessWidget {
   final ValueChanged<String> onTap;
-  const _Keypad({required this.onTap});
+  final Color accent;
+  const _Keypad({required this.onTap, required this.accent});
 
   @override
   Widget build(BuildContext context) {
     const keys = [
-      '1', '2', '3',
-      '4', '5', '6',
-      '7', '8', '9',
-      '.', '0', '⌫',
+      '1', '2', '3', '÷',
+      '4', '5', '6', '×',
+      '7', '8', '9', '−',
+      '.', '0', '⌫', '+',
     ];
     return Padding(
       padding: kPad,
@@ -715,19 +658,42 @@ class _Keypad extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         itemCount: keys.length,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          childAspectRatio: 1.9,
+          crossAxisCount: 4,
+          childAspectRatio: 1.7,
+          mainAxisSpacing: 10,
+          crossAxisSpacing: 10,
         ),
         itemBuilder: (_, i) {
           final key = keys[i];
-          return GestureDetector(
+          final isOp = Calc.isOp(key);
+          // Har tugma — kichik shisha plitka, bosilganda prujina bilan siqiladi
+          return KPressable(
             onTap: () => onTap(key),
-            behavior: HitTestBehavior.opaque,
-            child: Center(
-              child: key == '⌫'
-                  ? Icon(Icons.backspace_outlined,
-                      size: 24, color: KColors.ink)
-                  : Text(key, style: k(26, w: FontWeight.w500)),
+            scale: 0.9,
+            semanticLabel: key == '⌫'
+                ? MaterialLocalizations.of(context).deleteButtonTooltip
+                : null,
+            child: Glass(
+              shadow: const [],
+              color: isOp ? accent.withValues(alpha: 0.12) : null,
+              borderRadius: BorderRadius.circular(rTile),
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: KMotion.fast,
+                  transitionBuilder: (c, a) =>
+                      ScaleTransition(scale: a, child: c),
+                  child: key == '⌫'
+                      ? Icon(Icons.backspace_outlined,
+                          key: const ValueKey('del'),
+                          size: 22,
+                          color: KColors.ink)
+                      : Text(key,
+                          key: ValueKey(key),
+                          style: k(isOp ? 26 : 24,
+                              w: isOp ? FontWeight.w600 : FontWeight.w500,
+                              c: isOp ? accent : null)),
+                ),
+              ),
             ),
           );
         },

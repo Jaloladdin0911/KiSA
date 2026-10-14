@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 import '../models/transaction_model.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/calc.dart';
 import '../utils/formatters.dart';
 import '../utils/categories.dart';
 import '../widgets/kit.dart';
-import 'add_transaction_screen.dart';
+import '../widgets/movement_sheet.dart';
 
 /// Tranzaksiyalar tarixi — KISA_DESIGN_SPEC.md, Section 11.
 /// Qidiruv + filtr chiplar + sana bo'yicha guruhlangan ro'yxat.
@@ -18,15 +19,30 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
-  String _filter = 'all'; // all | income | expense | today
+  String _filter = 'all'; // all | income | expense | movement | today
   String _query = '';
+  String? _currency; // null = hammasi | 'UZS' | 'USD'
+  String? _place; // null = hammasi | 'cash' | 'card'
+
+  bool get _hasExtraFilter => _currency != null || _place != null;
+
+  bool _matchesWallet(TransactionModel t) {
+    // O'tkazmada manba yoki qabul qiluvchi hamyon mos kelsa yetarli
+    final curs = {t.currency, if (t.toCurrency != null) t.toCurrency};
+    final places = {t.place, if (t.toPlace != null) t.toPlace};
+    return (_currency == null || curs.contains(_currency)) &&
+        (_place == null || places.contains(_place));
+  }
 
   bool _matchesFilter(TransactionModel t) {
+    if (!_matchesWallet(t)) return false;
     switch (_filter) {
       case 'income':
         return t.type == 'income';
       case 'expense':
         return t.type == 'expense';
+      case 'movement':
+        return t.isSystem;
       case 'today':
         final n = DateTime.now();
         return t.date.year == n.year &&
@@ -39,8 +55,13 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   bool _matchesQuery(TransactionModel t, AppProvider p) {
     if (_query.isEmpty) return true;
-    final q = _query.toLowerCase();
-    return t.note.toLowerCase().contains(q) ||
+    final q = _query.toLowerCase().trim();
+    // Raqam yozilsa — summa bo'yicha ham qidiradi ("150000" yoki "150 000")
+    final digits = q.replaceAll(RegExp(r'[\s  ]'), '');
+    final amountMatch = RegExp(r'^\d+([.,]\d+)?$').hasMatch(digits) &&
+        Calc.trim(t.amount.abs()).contains(digits.replaceAll(',', '.'));
+    return amountMatch ||
+        t.note.toLowerCase().contains(q) ||
         p.s.cat(t.category).toLowerCase().contains(q);
   }
 
@@ -75,7 +96,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final groupKeys = groups.keys.toList();
 
     return Scaffold(
-      backgroundColor: KColors.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -92,8 +113,28 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                           style: k(17, w: FontWeight.w600)),
                     ),
                   ),
-                  KIconButton(
-                      icon: Icons.tune_rounded, onTap: () {}),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      KIconButton(
+                          icon: Icons.tune_rounded,
+                          label: provider.s('filters'),
+                          iconColor: _hasExtraFilter ? KColors.primary : null,
+                          onTap: _filterSheet),
+                      if (_hasExtraFilter)
+                        Positioned(
+                          top: 9,
+                          right: 9,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                                color: KColors.primary,
+                                shape: BoxShape.circle),
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -102,15 +143,14 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             // Qidiruv
             Padding(
               padding: kPad,
-              child: Container(
-                height: 48,
+              child: Glass(
+                blur: true,
+                sigma: 16,
+                borderRadius: BorderRadius.circular(rCard),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                decoration: BoxDecoration(
-                  color: KColors.card,
-                  borderRadius: BorderRadius.circular(rCard),
-                  boxShadow: kSoftShadow,
-                ),
-                child: Row(
+                child: SizedBox(
+                  height: 48,
+                  child: Row(
                   children: [
                     Icon(Icons.search_rounded,
                         size: 20, color: KColors.mut),
@@ -128,6 +168,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                       ),
                     ),
                   ],
+                  ),
                 ),
               ),
             ),
@@ -143,6 +184,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                   _chip('all', provider.s('filter_all')),
                   _chip('income', provider.s('kirim')),
                   _chip('expense', provider.s('chiqim')),
+                  _chip('movement', provider.s('filter_movement')),
                   _chip('today', provider.s('today')),
                 ],
               ),
@@ -167,9 +209,35 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                             Padding(
                               padding:
                                   const EdgeInsets.fromLTRB(24, 6, 20, 8),
-                              child: Text(_groupLabel(rows.first.date),
-                                  style: k(11,
-                                      w: FontWeight.w600, c: KColors.mut, ls: 0.5)),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(_groupLabel(rows.first.date),
+                                        style: k(11,
+                                            w: FontWeight.w600,
+                                            c: KColors.mut,
+                                            ls: 0.5)),
+                                  ),
+                                  // Kunlik sof natija (kirim − chiqim, so'mda)
+                                  Builder(builder: (_) {
+                                    var net = 0.0;
+                                    for (final t in rows) {
+                                      final v = provider.toUzs(t.amount, t.currency);
+                                      if (t.type == 'income') net += v;
+                                      if (t.type == 'expense') net -= v;
+                                    }
+                                    if (net == 0) return const SizedBox();
+                                    final sign = net > 0 ? '+' : '';
+                                    return Text(
+                                        '$sign${Money.compact(net, 'UZS')}',
+                                        style: k(11.5,
+                                            w: FontWeight.w600,
+                                            c: net > 0
+                                                ? KColors.primary
+                                                : KColors.sub));
+                                  }),
+                                ],
+                              ),
                             ),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
@@ -180,7 +248,32 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 child: Column(
                                   children: [
                                     for (int i = 0; i < rows.length; i++) ...[
-                                      _Row(tx: rows[i], provider: provider),
+                                      // Chapga surish — o'chirish (Bekor qilish bilan)
+                                      Dismissible(
+                                        key: ValueKey(rows[i].id),
+                                        direction: DismissDirection.endToStart,
+                                        background: Container(
+                                          alignment: Alignment.centerRight,
+                                          padding: const EdgeInsets.only(
+                                              right: 6),
+                                          child: Container(
+                                            width: 40,
+                                            height: 40,
+                                            decoration: BoxDecoration(
+                                              color: KColors.dangerBg,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                                Icons.delete_outline_rounded,
+                                                size: 20,
+                                                color: KColors.danger),
+                                          ),
+                                        ),
+                                        onDismissed: (_) =>
+                                            deleteWithUndo(context, rows[i]),
+                                        child: _Row(
+                                            tx: rows[i], provider: provider),
+                                      ),
                                       if (i != rows.length - 1)
                                         Divider(
                                             height: 1,
@@ -198,6 +291,108 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Valyuta va hamyon bo'yicha qo'shimcha filtr.
+  void _filterSheet() {
+    final s = context.read<AppProvider>().s;
+    showKSheet(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setM) {
+          void set(VoidCallback f) {
+            setM(f);
+            setState(() {});
+          }
+
+          Widget group(String title, String? value,
+              List<(String?, String)> options, ValueChanged<String?> onSel) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: k(13, w: FontWeight.w600, c: KColors.sub)),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final o in options)
+                      GestureDetector(
+                        onTap: () => set(() => onSel(o.$1)),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 9),
+                          decoration: BoxDecoration(
+                            color: value == o.$1 ? KColors.primary : KColors.bg,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(o.$2,
+                              style: k(13,
+                                  w: FontWeight.w600,
+                                  c: value == o.$1
+                                      ? Colors.white
+                                      : KColors.sub)),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                          color: KColors.line,
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Text(s('filters'), style: k(17, w: FontWeight.w700)),
+                      const Spacer(),
+                      if (_hasExtraFilter)
+                        GestureDetector(
+                          onTap: () => set(() {
+                            _currency = null;
+                            _place = null;
+                          }),
+                          child: Text(s('reset'),
+                              style: k(13.5,
+                                  w: FontWeight.w600, c: KColors.primary)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  group(s('currency'), _currency, [
+                    (null, s('filter_all')),
+                    ('UZS', s('som')),
+                    ('USD', '\$'),
+                  ], (v) => _currency = v),
+                  const SizedBox(height: 18),
+                  group(s('account'), _place, [
+                    (null, s('filter_all')),
+                    ('cash', s('wallet_cash')),
+                    ('card', s('wallet_card')),
+                  ], (v) => _place = v),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -248,7 +443,15 @@ class _Row extends StatelessWidget {
     final time =
         '${t.date.hour.toString().padLeft(2, '0')}:${t.date.minute.toString().padLeft(2, '0')}';
 
-    if (t.isMovement) {
+    if (t.isAdjust) {
+      // Qoldiq tuzatish — ishorali summa, statistikaga kirmaydi
+      icon = Icons.tune_rounded;
+      color = KColors.indigo;
+      title = s('balance_adjust');
+      meta = time;
+      amountStr = Money.format(t.amount, t.currency, showSign: true);
+      amountColor = KColors.sub;
+    } else if (t.isMovement) {
       icon = t.type == 'exchange'
           ? Icons.currency_exchange_rounded
           : Icons.swap_horiz_rounded;
@@ -268,13 +471,7 @@ class _Row extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: () {
-        if (!t.isMovement) {
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => AddTransactionScreen(existing: t),
-          ));
-        }
-      },
+      onTap: () => openTransaction(context, t),
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 13),

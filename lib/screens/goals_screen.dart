@@ -31,7 +31,7 @@ class GoalsScreen extends StatelessWidget {
         final active = goals.where((g) => !g.isCompleted).length;
 
         return Scaffold(
-          backgroundColor: KColors.bg,
+          backgroundColor: Colors.transparent,
           body: SafeArea(
             bottom: false,
             child: Column(
@@ -92,7 +92,8 @@ class GoalsScreen extends StatelessWidget {
                               color: color,
                               onAddMoney: () =>
                                   _addMoney(context, provider, e.value),
-                              onDelete: () => provider.deleteGoal(e.value.id),
+                              onDelete: () =>
+                                  _deleteWithUndo(context, provider, e.value),
                             ),
                           );
                         }),
@@ -107,6 +108,93 @@ class GoalsScreen extends StatelessWidget {
     );
   }
 
+  void _deleteWithUndo(
+      BuildContext context, AppProvider provider, GoalModel goal) {
+    final s = provider.s;
+    provider.deleteGoal(goal.id);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(s('goal_deleted')),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: s('undo'),
+          textColor: const Color(0xFF6EE7B7),
+          onPressed: () => provider.addGoal(goal),
+        ),
+      ));
+  }
+
+  /// Maqsadga erishildi — kubok prujina bilan chiqadi, atrofida porlash.
+  void _celebrate(BuildContext context, AppProvider provider, GoalModel goal) {
+    final s = provider.s;
+    showKDialog(
+      context: context,
+      builder: (ctx) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Glass(
+            blur: true,
+            color: KColors.sheet,
+            borderRadius: BorderRadius.circular(rCardLg),
+            shadow: kCardShadow,
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: const Duration(milliseconds: 900),
+                    curve: KMotion.spring,
+                    builder: (_, v, child) => Transform.scale(
+                      scale: v,
+                      child: Transform.rotate(
+                          angle: (1 - v) * -0.6, child: child),
+                    ),
+                    child: Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: const LinearGradient(colors: [
+                          Color(0xFFFCD34D),
+                          Color(0xFFF59E0B),
+                        ]),
+                        boxShadow: [
+                          BoxShadow(
+                              color: const Color(0xFFF59E0B)
+                                  .withValues(alpha: 0.45),
+                              blurRadius: 30,
+                              offset: const Offset(0, 10)),
+                        ],
+                      ),
+                      child: const Icon(Icons.emoji_events_rounded,
+                          size: 52, color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(s('goal_reached_title'),
+                      textAlign: TextAlign.center,
+                      style: k(20, w: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Text(
+                      s('goal_reached_sub').replaceAll('{goal}', goal.title),
+                      textAlign: TextAlign.center,
+                      style: k(14, c: KColors.sub, height: 1.4)),
+                  const SizedBox(height: 22),
+                  KPrimaryButton(
+                      label: s('great'), onTap: () => Navigator.pop(ctx)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Maqsad qo'shish ───────────────────────────────────────────────────────
   void _showAddModal(BuildContext context, AppProvider provider) {
     final titleCtrl = TextEditingController();
@@ -115,13 +203,9 @@ class GoalsScreen extends StatelessWidget {
     String icon = 'target';
     final icons = GoalIcons.keys;
 
-    showModalBottomSheet(
+    showKSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: KColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setM) => Padding(
@@ -255,12 +339,9 @@ class GoalsScreen extends StatelessWidget {
 
   void _addMoney(BuildContext context, AppProvider provider, GoalModel goal) {
     final ctrl = TextEditingController();
-    showDialog(
+    showKDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: KColors.card,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
         title: Text(goal.title, style: k(16, w: FontWeight.w700)),
         content: _Field(
             controller: ctrl,
@@ -278,11 +359,16 @@ class GoalsScreen extends StatelessWidget {
             onTap: () {
               final amount = Money.parse(ctrl.text);
               if (amount == null || amount <= 0) return;
-              provider.updateGoal(goal.copyWith(
+              final updated = goal.copyWith(
                 currentAmount:
                     (goal.currentAmount + amount).clamp(0, goal.targetAmount),
-              ));
+              );
+              provider.updateGoal(updated);
               Navigator.pop(ctx);
+              // Maqsadga endi yetildi — tabriklaymiz
+              if (!goal.isCompleted && updated.isCompleted) {
+                _celebrate(context, provider, goal);
+              }
             },
           ),
         ],
@@ -299,13 +385,19 @@ class _Summary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppProvider>().s;
-    return Container(
+    // To'q "tutunli" shisha — ostidan aurora ranglari xira ko'rinadi
+    return Glass(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: KColors.dark,
-        borderRadius: BorderRadius.circular(rCardLg),
-        boxShadow: kCardShadow,
+      tint: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          KColors.dark.withValues(alpha: 0.88),
+          const Color(0xFF1E293B).withValues(alpha: 0.78),
+        ],
       ),
+      borderRadius: BorderRadius.circular(rCardLg),
+      shadow: kCardShadow,
       child: Row(
         children: [
           Expanded(

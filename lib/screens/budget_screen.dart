@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_strings.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
@@ -25,7 +26,7 @@ class BudgetScreen extends StatelessWidget {
         final spent = hasBudgets
             ? budgets.keys
                 .fold(0.0, (s, c) => s + provider.categorySpentThisMonth(c))
-            : provider.expenseThisMonth('UZS');
+            : provider.expenseThisMonthInUzs();
         final remaining = (limit - spent).clamp(0, double.infinity).toDouble();
         final pct = limit > 0 ? (spent / limit).clamp(0.0, 1.0) : 0.0;
 
@@ -144,13 +145,9 @@ class BudgetScreen extends StatelessWidget {
     final amountCtrl = TextEditingController(
         text: current != null ? Money.plain(current, currency: 'UZS') : '');
 
-    showModalBottomSheet(
+    showKSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: KColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setM) => Padding(
@@ -315,14 +312,74 @@ class _Hero extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.watch<AppProvider>().s;
     final w90 = Colors.white.withValues(alpha: 0.9);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: kGradient,
-        borderRadius: BorderRadius.circular(rCardLg),
-        boxShadow: kGreenShadow,
-      ),
-      child: Column(
+    // Sarf ulushi oshgani sari karta rangi silliq o'zgaradi:
+    // yashil (xavfsiz) → to'q sariq (80% atrofi) → qizil (limitdan oshgan)
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: pct),
+      duration: const Duration(milliseconds: 1000),
+      curve: KMotion.emphasized,
+      builder: (context, p, child) {
+        Color mix(Color brand, Color warn, Color bad) {
+          if (p <= 0.6) return brand;
+          if (p <= 0.9) return Color.lerp(brand, warn, (p - 0.6) / 0.3)!;
+          return Color.lerp(warn, bad, ((p - 0.9) / 0.15).clamp(0.0, 1.0))!;
+        }
+
+        final a = mix(KColors.gradStart, const Color(0xFFD97706),
+            const Color(0xFFDC2626));
+        final b = mix(KColors.gradEnd, const Color(0xFFF59E0B),
+            const Color(0xFFF2585B));
+        return Glass(
+          padding: const EdgeInsets.all(20),
+          tint: LinearGradient(
+            begin: Alignment.bottomLeft,
+            end: Alignment.topRight,
+            colors: [a.withValues(alpha: 0.92), b.withValues(alpha: 0.82)],
+          ),
+          borderRadius: BorderRadius.circular(rCardLg),
+          shadow: [
+            BoxShadow(
+                color: a.withValues(alpha: 0.3),
+                offset: const Offset(0, 14),
+                blurRadius: 28),
+          ],
+          child: _content(s, w90, p),
+        );
+      },
+    );
+  }
+
+  Widget _miniStat(IconData icon, String value, String label, Color dim) =>
+      Glass(
+        color: Colors.white.withValues(alpha: 0.14),
+        shadow: const [],
+        borderRadius: BorderRadius.circular(rTile),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: k(14, w: FontWeight.w700, c: Colors.white)),
+                  Text(label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: k(10.5, c: dim)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _content(AppStrings s, Color w90, double animPct) {
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -377,7 +434,7 @@ class _Hero extends StatelessWidget {
                 Container(
                     height: 8, color: Colors.white.withValues(alpha: 0.28)),
                 FractionallySizedBox(
-                  widthFactor: pct,
+                  widthFactor: animPct.clamp(0.0, 1.0),
                   child: Container(height: 8, color: Colors.white),
                 ),
               ],
@@ -386,15 +443,58 @@ class _Hero extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              Text('${s('spent')}: ${Money.plain(spent, currency: 'UZS')}',
-                  style: k(12, w: FontWeight.w500, c: w90)),
-              const Spacer(),
-              Text('${s('limit_label')}: ${Money.plain(limit, currency: 'UZS')}',
-                  style: k(12, w: FontWeight.w500, c: w90)),
+              Flexible(
+                child: Text(
+                    '${s('spent')}: ${Money.plain(spent, currency: 'UZS')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: k(12, w: FontWeight.w500, c: w90)),
+              ),
+              const SizedBox(width: 10),
+              Flexible(
+                child: Text(
+                    '${s('limit_label')}: ${Money.plain(limit, currency: 'UZS')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: k(12, w: FontWeight.w500, c: w90)),
+              ),
             ],
           ),
+          if (limit > 0) ...[
+            const SizedBox(height: 14),
+            Builder(builder: (_) {
+              // Bugungi kun ham hisobga olinadi: qolgan kunlar = oy oxirigacha
+              final now = DateTime.now();
+              final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+              final daysLeft = daysInMonth - now.day + 1;
+              final perDay = ((limit - spent) / daysLeft).clamp(0.0, double.infinity);
+              final forecast = spent / now.day * daysInMonth;
+              final overForecast = forecast > limit;
+              return Row(
+                children: [
+                  Expanded(
+                    child: _miniStat(
+                        Icons.today_rounded,
+                        Money.compact(perDay, 'UZS'),
+                        s('safe_per_day'),
+                        w90),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _miniStat(
+                        overForecast
+                            ? Icons.warning_amber_rounded
+                            : Icons.insights_rounded,
+                        Money.compact(forecast, 'UZS'),
+                        overForecast ? s('forecast_over') : s('forecast'),
+                        w90),
+                  ),
+                ],
+              );
+            }),
+          ],
         ],
-      ),
     );
   }
 }
@@ -431,8 +531,13 @@ class _BudgetRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(name, style: k(14, w: FontWeight.w600)),
-                    const Spacer(),
+                    Expanded(
+                      child: Text(name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: k(14, w: FontWeight.w600)),
+                    ),
+                    const SizedBox(width: 8),
                     Text('${(pct * 100).round()}%',
                         style: k(13, w: FontWeight.w600, c: pctColor)),
                   ],
@@ -445,7 +550,13 @@ class _BudgetRow extends StatelessWidget {
                   style: k(12, c: over ? KColors.danger : KColors.mut),
                 ),
                 const SizedBox(height: 8),
-                KProgressBar(pct: pct, color: color, height: 6),
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: pct),
+                  duration: const Duration(milliseconds: 900),
+                  curve: KMotion.emphasized,
+                  builder: (_, v, __) => KProgressBar(
+                      pct: v, color: color, height: 6, track: KColors.bg),
+                ),
               ],
             ),
           ),

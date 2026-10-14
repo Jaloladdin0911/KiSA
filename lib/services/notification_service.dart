@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -27,6 +28,7 @@ class NotificationService {
   }
 
   static Future<bool> requestPermission() async {
+    if (kIsWeb) return false; // brauzerda lokal rejalashtirilgan eslatma yo'q
     await init();
     final ios = _plugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
@@ -39,6 +41,7 @@ class NotificationService {
   }
 
   static Future<void> scheduleDaily(int hour, int minute) async {
+    if (kIsWeb) return;
     await init();
     await _plugin.cancelAll();
 
@@ -70,6 +73,7 @@ class NotificationService {
   }
 
   static Future<void> cancelAll() async {
+    if (kIsWeb) return;
     await init();
     await _plugin.cancelAll();
   }

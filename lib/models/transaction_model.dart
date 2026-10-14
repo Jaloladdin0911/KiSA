@@ -1,7 +1,12 @@
 class TransactionModel {
   final String id;
   final String userId;
-  final String type; // 'income' | 'expense' | 'transfer' | 'exchange'
+  /// 'income' | 'expense' | 'transfer' | 'exchange' | 'adjust'.
+  /// 'adjust' — qoldiq tuzatish (boshlang'ich qoldiq yoki haqiqiy summaga
+  /// moslash): faqat balansni o'zgartiradi, kirim/chiqim statistikasiga kirmaydi.
+  final String type;
+
+  /// Musbat summa. Faqat 'adjust'da ishorali (+ qo'shadi, − ayiradi).
   final double amount;
   final String category;
   final DateTime date;
@@ -35,6 +40,12 @@ class TransactionModel {
 
   /// Hisoblar orasidagi harakatmi (o'tkazma yoki ayirboshlash).
   bool get isMovement => type == 'transfer' || type == 'exchange';
+
+  /// Qoldiq tuzatishmi.
+  bool get isAdjust => type == 'adjust';
+
+  /// Kirim/chiqim emas (tahrirlash ekrani o'rniga tafsilot oynasi ochiladi).
+  bool get isSystem => isMovement || isAdjust;
 
   // Hive (lokal) uchun
   Map<String, dynamic> toSqlite() => {

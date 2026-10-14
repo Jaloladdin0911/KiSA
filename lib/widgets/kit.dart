@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'glass.dart';
+
+export 'glass.dart';
 
 /// KiSA dizayn tizimi — qayta ishlatiladigan komponentlar (KISA_DESIGN_SPEC.md, Section 2).
 
@@ -24,18 +27,15 @@ class KCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = Container(
+    final card = Glass(
       padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? KColors.card,
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: shadow,
-      ),
+      color: color,
+      borderRadius: BorderRadius.circular(radius),
+      shadow: shadow,
       child: child,
     );
     if (onTap == null) return card;
-    return GestureDetector(
-        onTap: onTap, behavior: HitTestBehavior.opaque, child: card);
+    return KPressable(onTap: onTap, scale: 0.97, child: card);
   }
 }
 
@@ -147,22 +147,29 @@ class KIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final Color? iconColor;
+  final String? label; // ekran o'quvchisi uchun
   const KIconButton(
-      {super.key, required this.icon, required this.onTap, this.iconColor});
+      {super.key,
+      required this.icon,
+      required this.onTap,
+      this.iconColor,
+      this.label});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return KPressable(
       onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: KColors.card,
-          borderRadius: BorderRadius.circular(rTile),
-          boxShadow: kSoftShadow,
+      scale: 0.9,
+      semanticLabel: label,
+      child: Glass(
+        blur: true,
+        sigma: 16,
+        borderRadius: BorderRadius.circular(rTile),
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(icon, size: 21, color: iconColor ?? KColors.ink),
         ),
-        child: Icon(icon, size: 21, color: iconColor ?? KColors.ink),
       ),
     );
   }
@@ -175,17 +182,128 @@ class KAddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return KPressable(
       onTap: onTap,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          gradient: kGradient,
-          borderRadius: BorderRadius.circular(rTile),
-          boxShadow: kGreenShadow,
+      scale: 0.88,
+      child: Glass(
+        tint: kGradient,
+        borderRadius: BorderRadius.circular(rTile),
+        shadow: kGreenShadow,
+        child: const SizedBox(
+          width: 44,
+          height: 44,
+          child: Icon(Icons.add_rounded, size: 24, color: Colors.white),
         ),
-        child: const Icon(Icons.add_rounded, size: 24, color: Colors.white),
+      ),
+    );
+  }
+}
+
+/// Segmentli tanlagich — botgan trek ichida shisha "tomchi" tanlangan
+/// variantga prujina bilan siljiydi. [colors] berilsa, har variantning
+/// faol matn rangi alohida (masalan Chiqim — qizil, Kirim — yashil).
+class KSegmented extends StatelessWidget {
+  final List<(String, String)> options; // (qiymat, yorliq)
+  final String value;
+  final ValueChanged<String> onChanged;
+  final List<Color>? colors;
+  final double height;
+
+  const KSegmented({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    this.colors,
+    this.height = 42,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final idx = options.indexWhere((o) => o.$1 == value).clamp(0, 99);
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: KColors.bg,
+        borderRadius: BorderRadius.circular(rTile),
+      ),
+      child: LayoutBuilder(builder: (context, box) {
+        final w = box.maxWidth / options.length;
+        return SizedBox(
+          height: height,
+          child: Stack(
+            children: [
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 420),
+                curve: KMotion.spring,
+                left: idx * w,
+                top: 0,
+                bottom: 0,
+                width: w,
+                child: Glass(
+                  color: KColors.raised,
+                  borderRadius: BorderRadius.circular(rTile - 4),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              Row(
+                children: [
+                  for (var i = 0; i < options.length; i++)
+                    Expanded(
+                      child: KPressable(
+                        scale: 0.94,
+                        onTap: () => onChanged(options[i].$1),
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: KMotion.fast,
+                            style: k(14,
+                                w: i == idx
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
+                                c: i == idx
+                                    ? (colors?[i] ?? KColors.ink)
+                                    : KColors.sub),
+                            child: Text(options[i].$2,
+                                maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+/// Asosiy CTA — gradient shisha tugma (Saqlash, Yaratish...).
+class KPrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final double height;
+  const KPrimaryButton(
+      {super.key, required this.label, required this.onTap, this.height = 56});
+
+  @override
+  Widget build(BuildContext context) {
+    return KPressable(
+      onTap: onTap,
+      scale: 0.97,
+      child: Glass(
+        tint: kGradient,
+        borderRadius: BorderRadius.circular(rBtn),
+        shadow: kGreenShadow,
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: Center(
+            child: Text(label,
+                style: k(16, w: FontWeight.w600, c: Colors.white)),
+          ),
+        ),
       ),
     );
   }
@@ -197,18 +315,59 @@ class KBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return KPressable(
       onTap: () => Navigator.maybePop(context),
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: KColors.card,
-          shape: BoxShape.circle,
-          boxShadow: kSoftShadow,
+      scale: 0.88,
+      semanticLabel: MaterialLocalizations.of(context).backButtonTooltip,
+      child: Glass(
+        blur: true,
+        sigma: 16,
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(Icons.chevron_left_rounded,
+              size: 24, color: KColors.ink),
         ),
-        child: Icon(Icons.chevron_left_rounded,
-            size: 24, color: KColors.ink),
+      ),
+    );
+  }
+}
+
+/// Doira shisha tugma (yopish ×, o'chirish va h.k.).
+class KCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? color;
+  final Color? bg;
+  final String? label; // ekran o'quvchisi uchun
+  const KCircleButton(
+      {super.key,
+      required this.icon,
+      required this.onTap,
+      this.color,
+      this.bg,
+      this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return KPressable(
+      onTap: onTap,
+      scale: 0.88,
+      semanticLabel: label ??
+          (icon == Icons.close_rounded
+              ? MaterialLocalizations.of(context).closeButtonTooltip
+              : null),
+      child: Glass(
+        blur: bg == null,
+        sigma: 16,
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: Icon(icon, size: 22, color: color ?? KColors.ink),
+        ),
       ),
     );
   }

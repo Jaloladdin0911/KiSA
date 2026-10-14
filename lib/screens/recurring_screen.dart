@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/app_strings.dart';
 import '../models/recurring_model.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
@@ -23,7 +24,7 @@ class RecurringScreen extends StatelessWidget {
       builder: (context, provider, _) {
         final items = provider.recurring;
         return Scaffold(
-          backgroundColor: KColors.bg,
+          backgroundColor: Colors.transparent,
           body: SafeArea(
             bottom: false,
             child: Column(
@@ -57,8 +58,22 @@ class RecurringScreen extends StatelessWidget {
                               strings: provider.s,
                               freqLabel:
                                   provider.s(_freqKey[items[i].frequency] ?? ''),
-                              onDelete: () =>
-                                  provider.deleteRecurring(items[i].id),
+                              onDelete: () {
+                                final item = items[i];
+                                provider.deleteRecurring(item.id);
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(SnackBar(
+                                    content: Text(provider.s('tx_deleted')),
+                                    duration: const Duration(seconds: 5),
+                                    action: SnackBarAction(
+                                      label: provider.s('undo'),
+                                      textColor: const Color(0xFF6EE7B7),
+                                      onPressed: () =>
+                                          provider.restoreRecurring(item),
+                                    ),
+                                  ));
+                              },
                             ),
                           ),
                         ),
@@ -114,13 +129,9 @@ class RecurringScreen extends StatelessWidget {
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
 
-    showModalBottomSheet(
+    showKSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: KColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setM) {
@@ -174,6 +185,13 @@ class RecurringScreen extends StatelessWidget {
                       style: k(16),
                       decoration: _dec(s('amount'),
                           suffix: currency == 'USD' ? '\$' : s('som')),
+                    ),
+                    const SizedBox(height: 14),
+
+                    TextField(
+                      controller: noteCtrl,
+                      style: k(15),
+                      decoration: _dec(s('note_optional')),
                     ),
                     const SizedBox(height: 14),
 
@@ -343,46 +361,14 @@ class RecurringScreen extends StatelessWidget {
 
   static Widget _seg(List<(String, String)> options, String value,
       ValueChanged<String> onChanged) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: KColors.isDark
-            ? const Color(0xFF23262F)
-            : const Color(0xFFEDEFF3),
-        borderRadius: BorderRadius.circular(rTile),
-      ),
-      child: Row(
-        children: options.map((o) {
-          final active = o.$1 == value;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(o.$1),
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: active ? KColors.card : Colors.transparent,
-                  borderRadius: BorderRadius.circular(rTile - 3),
-                  boxShadow: active ? kSoftShadow : null,
-                ),
-                child: Text(o.$2,
-                    style: k(13.5,
-                        w: active ? FontWeight.w600 : FontWeight.w500,
-                        c: active ? KColors.ink : KColors.sub)),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
+    return KSegmented(
+        options: options, value: value, onChanged: onChanged, height: 40);
   }
 }
 
 class _RecurRow extends StatelessWidget {
   final RecurringModel item;
-  final dynamic strings;
+  final AppStrings strings;
   final String freqLabel;
   final VoidCallback onDelete;
   const _RecurRow({

@@ -1,12 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/kisa_logo.dart';
+import '../widgets/kit.dart';
 
-/// Xush kelibsiz / Onboarding — KISA_DESIGN_SPEC.md, Section 3.
-/// 3 sahifali (swipe), birinchi ishga tushishda ko'rsatiladi.
+/// Birinchi ishga tushish — 3 sahifali tanishtiruv. Har sahifada suzuvchi
+/// shisha illyustratsiya (parallaks bilan), pastda suyuq sahifa ko'rsatkichi.
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -14,118 +14,98 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
-  final _controller = PageController();
-  int _index = 0;
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
+  final _page = PageController();
+  late final AnimationController _float = AnimationController(
+      vsync: this, duration: const Duration(seconds: 4))
+    ..repeat();
+  double _pos = 0;
 
-  static const _pages = [
-    _Page(logoText: 'KiSA', titleKey: 'ob1_title', subtitleKey: 'ob1_sub'),
-    _Page(
-        icon: Icons.pie_chart_rounded,
-        titleKey: 'ob2_title',
-        subtitleKey: 'ob2_sub'),
-    _Page(
-        icon: Icons.flag_rounded,
-        titleKey: 'ob3_title',
-        subtitleKey: 'ob3_sub'),
+  static const _slides = [
+    (Icons.account_balance_wallet_rounded, KColors.primary, Icons.payments_rounded,
+        Icons.credit_card_rounded),
+    (Icons.donut_large_rounded, KColors.blue, Icons.bar_chart_rounded,
+        Icons.notifications_active_rounded),
+    (Icons.flag_rounded, KColors.purple, Icons.savings_rounded,
+        Icons.emoji_events_rounded),
   ];
 
-  bool get _isLast => _index == _pages.length - 1;
-
-  Future<void> _finish() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('seen_onboarding', true);
-    if (mounted) Navigator.pushReplacementNamed(context, '/home');
-  }
-
-  void _next() {
-    if (_isLast) {
-      _finish();
-    } else {
-      _controller.nextPage(
-          duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _page.addListener(() => setState(() => _pos = _page.page ?? 0));
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _page.dispose();
+    _float.dispose();
     super.dispose();
+  }
+
+  void _finish() => Navigator.of(context).pushReplacementNamed('/register');
+
+  void _next() {
+    final i = _pos.round();
+    if (i >= _slides.length - 1) {
+      _finish();
+    } else {
+      _page.animateToPage(i + 1,
+          duration: KMotion.slow, curve: KMotion.emphasized);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppProvider>().s;
+    final last = _pos.round() == _slides.length - 1;
+
     return Scaffold(
-      backgroundColor: KColors.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnimatedOpacity(
+                opacity: last ? 0 : 1,
+                duration: KMotion.fast,
+                child: KPressable(
+                  onTap: last ? null : _finish,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 14, 24, 8),
+                    child: Text(s('skip'),
+                        style: k(14, w: FontWeight.w600, c: KColors.sub)),
+                  ),
+                ),
+              ),
+            ),
             Expanded(
               child: PageView.builder(
-                controller: _controller,
-                itemCount: _pages.length,
-                onPageChanged: (i) => setState(() => _index = i),
-                itemBuilder: (_, i) => _PageView(page: _pages[i]),
+                controller: _page,
+                itemCount: _slides.length,
+                itemBuilder: (_, i) {
+                  final offset = (i - _pos).clamp(-1.0, 1.0);
+                  return _Slide(
+                    data: _slides[i],
+                    title: s('ob${i + 1}_title'),
+                    subtitle: s('ob${i + 1}_sub'),
+                    offset: offset,
+                    float: _float,
+                  );
+                },
               ),
             ),
-
-            // Sahifa nuqtalari
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_pages.length, (i) {
-                final active = i == _index;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: active ? 22 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: active ? KColors.primary : const Color(0xFFCBD2DC),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                );
-              }),
-            ),
+            _Dots(count: _slides.length, position: _pos),
             const SizedBox(height: 28),
-
-            // CTA
             Padding(
-              padding: kPad,
-              child: GestureDetector(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: KPrimaryButton(
+                label: last ? s('start') : s('next'),
                 onTap: _next,
-                child: Container(
-                  width: double.infinity,
-                  height: 56,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: kGradient,
-                    borderRadius: BorderRadius.circular(rBtn),
-                    boxShadow: kGreenShadow,
-                  ),
-                  child: Text(_isLast ? s('start') : s('next'),
-                      style: k(16, w: FontWeight.w600, c: Colors.white)),
-                ),
               ),
             ),
-            const SizedBox(height: 18),
-
-            GestureDetector(
-              onTap: _finish,
-              child: Text.rich(
-                TextSpan(
-                  text: s('have_account'),
-                  style: k(14, c: KColors.sub),
-                  children: [
-                    TextSpan(
-                      text: s('login'),
-                      style: k(14, w: FontWeight.w600, c: KColors.primary),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
           ],
         ),
       ),
@@ -133,107 +113,144 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class _Page {
-  final String? logoText;
-  final IconData? icon;
-  final String titleKey, subtitleKey;
-  const _Page({
-    this.logoText,
-    this.icon,
-    required this.titleKey,
-    required this.subtitleKey,
-  });
-}
+class _Slide extends StatelessWidget {
+  final (IconData, Color, IconData, IconData) data;
+  final String title, subtitle;
+  final double offset; // -1..1, sahifa markazdan qancha siljigan
+  final Animation<double> float;
 
-class _PageView extends StatelessWidget {
-  final _Page page;
-  const _PageView({required this.page});
+  const _Slide({
+    required this.data,
+    required this.title,
+    required this.subtitle,
+    required this.offset,
+    required this.float,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final s = context.watch<AppProvider>().s;
-    return Padding(
-      padding: kPad,
-      child: Column(
-        children: [
-          const Spacer(flex: 3),
-          SizedBox(
-            height: 290,
-            width: 290,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _ring(290, KColors.gradEnd, 0.16),
-                _ring(220, KColors.gradStart, 0.22),
-                _ring(152, KColors.gradEnd, 0.38),
-                const _AccentDot(top: 18, left: 40, color: KColors.gradEnd),
-                const _AccentDot(
-                    bottom: 30, right: 36, color: KColors.gradStart),
-                const _AccentDot(top: 70, right: 22, color: KColors.gradEnd),
-                page.logoText != null
-                    ? const KisaLogo(size: 104)
-                    : Container(
-                        width: 104,
-                        height: 104,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          gradient: kGradient,
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: kGreenShadow,
-                        ),
-                        child: Icon(page.icon, color: Colors.white, size: 46),
+    final (icon, color, a, b) = data;
+    final w = MediaQuery.of(context).size.width;
+    return Column(
+      children: [
+        const Spacer(),
+        // Illyustratsiya matndan tezroq siljiydi — parallaks
+        Transform.translate(
+          offset: Offset(offset * w * 0.35, 0),
+          child: AnimatedBuilder(
+            animation: float,
+            builder: (_, __) {
+              final t = float.value * 2 * math.pi;
+              return SizedBox(
+                width: 260,
+                height: 260,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Yumshoq rangli nur
+                    Container(
+                      width: 240,
+                      height: 240,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: RadialGradient(colors: [
+                          color.withValues(alpha: 0.35),
+                          color.withValues(alpha: 0),
+                        ]),
                       ),
-              ],
+                    ),
+                    // Asosiy shisha shar
+                    Transform.translate(
+                      offset: Offset(0, math.sin(t) * 6),
+                      child: Glass(
+                        blur: true,
+                        borderRadius: BorderRadius.circular(70),
+                        shadow: kCardShadow,
+                        child: SizedBox(
+                          width: 140,
+                          height: 140,
+                          child: Icon(icon, size: 62, color: color),
+                        ),
+                      ),
+                    ),
+                    // Atrofida suzuvchi kichik shisha pufakchalar
+                    _orbit(a, color, t, 0, 92),
+                    _orbit(b, color, t, math.pi, 100),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 36),
+        Opacity(
+          opacity: (1 - offset.abs() * 1.4).clamp(0.0, 1.0),
+          child: Transform.translate(
+            offset: Offset(offset * w * 0.12, 0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                children: [
+                  Text(title,
+                      textAlign: TextAlign.center,
+                      style: k(28, w: FontWeight.w700, height: 1.15)),
+                  const SizedBox(height: 14),
+                  Text(subtitle,
+                      textAlign: TextAlign.center,
+                      style: k(15, c: KColors.sub, height: 1.5)),
+                ],
+              ),
             ),
           ),
-          const Spacer(flex: 2),
-          Text(s(page.titleKey),
-              textAlign: TextAlign.center,
-              style: k(26, w: FontWeight.w700, height: 1.25)),
-          const SizedBox(height: 14),
-          Text(s(page.subtitleKey),
-              textAlign: TextAlign.center,
-              style: k(14.5, c: KColors.sub, height: 1.4)),
-          const Spacer(flex: 3),
-        ],
-      ),
+        ),
+        const Spacer(),
+      ],
     );
   }
 
-  static Widget _ring(double d, Color color, double opacity) => Container(
-        width: d,
-        height: d,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-              color: color.withValues(alpha: opacity), width: 1.5),
+  Widget _orbit(IconData icon, Color color, double t, double phase, double r) {
+    final a = t * 0.5 + phase;
+    return Transform.translate(
+      offset: Offset(math.cos(a) * r, math.sin(a) * r * 0.55),
+      child: Glass(
+        borderRadius: BorderRadius.circular(24),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(icon, size: 22, color: color),
         ),
-      );
+      ),
+    );
+  }
 }
 
-class _AccentDot extends StatelessWidget {
-  final double? top, bottom, left, right;
-  final Color color;
-  const _AccentDot({
-    this.top,
-    this.bottom,
-    this.left,
-    this.right,
-    required this.color,
-  });
+/// Suyuq sahifa ko'rsatkichi — faol nuqta cho'zilib, keyingisiga "oqib" o'tadi.
+class _Dots extends StatelessWidget {
+  final int count;
+  final double position;
+  const _Dots({required this.count, required this.position});
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: Container(
-        width: 9,
-        height: 9,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        for (var i = 0; i < count; i++)
+          Builder(builder: (_) {
+            final d = (position - i).abs().clamp(0.0, 1.0);
+            final active = 1 - d;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: 8 + 20 * active,
+              height: 8,
+              decoration: BoxDecoration(
+                color: Color.lerp(
+                    KColors.mut.withValues(alpha: 0.35), KColors.primary, active),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+      ],
     );
   }
 }

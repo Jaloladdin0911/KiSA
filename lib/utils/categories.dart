@@ -78,8 +78,122 @@ class CategoryMeta {
     'Boshqa': Color(0xFF868E96),
   };
 
-  static IconData icon(String key) => _icons[key] ?? Icons.receipt_long_rounded;
-  static Color color(String key) => _colors[key] ?? const Color(0xFF868E96);
+  static IconData icon(String key) =>
+      custom[key]?.iconData ?? _icons[key] ?? Icons.receipt_long_rounded;
+  static Color color(String key) =>
+      custom[key]?.color ?? _colors[key] ?? const Color(0xFF868E96);
+
+  /// Foydalanuvchi yaratgan kategoriyalar reestri (kalit → kategoriya).
+  /// AppProvider yuklaydi; arxivlanganlari ham shu yerda qoladi — eski
+  /// amallar nomi va ikonkasi bilan ko'rinishda davom etishi uchun.
+  static final Map<String, CustomCategory> custom = {};
+
+  /// Tanlash ro'yxatlarida ko'rinadigan (arxivlanmagan) kalitlar.
+  static List<String> customKeys(String type) => [
+        for (final c in custom.values)
+          if (c.type == type && !c.archived) c.key,
+      ];
+
+  /// Yangi kategoriya uchun tanlanadigan ikonkalar (kalit → ikonka).
+  /// IconData kodini saqlash o'rniga kalit — release build'da ikonka
+  /// "tree-shaking" buzilmasligi uchun.
+  static const Map<String, IconData> pickerIcons = {
+    'cart': Icons.shopping_cart_rounded,
+    'bag': Icons.shopping_bag_rounded,
+    'coffee': Icons.coffee_rounded,
+    'pizza': Icons.local_pizza_rounded,
+    'bus': Icons.directions_bus_rounded,
+    'taxi': Icons.local_taxi_rounded,
+    'home': Icons.home_rounded,
+    'tools': Icons.handyman_rounded,
+    'phone': Icons.smartphone_rounded,
+    'wifi': Icons.wifi_rounded,
+    'tv': Icons.live_tv_rounded,
+    'game': Icons.sports_esports_rounded,
+    'music': Icons.music_note_rounded,
+    'book': Icons.menu_book_rounded,
+    'school': Icons.school_rounded,
+    'health': Icons.medical_services_rounded,
+    'pill': Icons.medication_rounded,
+    'pet': Icons.pets_rounded,
+    'baby': Icons.child_friendly_rounded,
+    'gift': Icons.card_giftcard_rounded,
+    'heart': Icons.favorite_rounded,
+    'plane': Icons.flight_rounded,
+    'car': Icons.directions_car_rounded,
+    'fuel': Icons.local_gas_station_rounded,
+    'work': Icons.work_rounded,
+    'money': Icons.payments_rounded,
+    'chart': Icons.trending_up_rounded,
+    'star': Icons.star_rounded,
+    'mosque': Icons.mosque_rounded,
+    'charity': Icons.volunteer_activism_rounded,
+  };
+
+  /// Yangi kategoriya ranglari.
+  static const List<Color> pickerColors = [
+    Color(0xFFFF8B3D),
+    Color(0xFFF2585B),
+    Color(0xFFEC4899),
+    Color(0xFF8B5CF6),
+    Color(0xFF6366F1),
+    Color(0xFF4C8DFF),
+    Color(0xFF22B8CF),
+    Color(0xFF1C9D67),
+    Color(0xFF40C057),
+    Color(0xFFFAB005),
+    Color(0xFF868E96),
+  ];
+}
+
+/// Foydalanuvchi yaratgan kategoriya.
+class CustomCategory {
+  final String key; // 'c_<id>' — amallarda shu kalit saqlanadi
+  final String name;
+  final String type; // 'expense' | 'income'
+  final String icon; // CategoryMeta.pickerIcons kaliti
+  final int colorValue;
+  final bool archived;
+
+  const CustomCategory({
+    required this.key,
+    required this.name,
+    required this.type,
+    required this.icon,
+    required this.colorValue,
+    this.archived = false,
+  });
+
+  IconData get iconData =>
+      CategoryMeta.pickerIcons[icon] ?? Icons.category_rounded;
+  Color get color => Color(colorValue);
+
+  CustomCategory copyWith({bool? archived, String? name}) => CustomCategory(
+        key: key,
+        name: name ?? this.name,
+        type: type,
+        icon: icon,
+        colorValue: colorValue,
+        archived: archived ?? this.archived,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'key': key,
+        'name': name,
+        'type': type,
+        'icon': icon,
+        'color': colorValue,
+        'archived': archived,
+      };
+
+  factory CustomCategory.fromJson(Map<String, dynamic> m) => CustomCategory(
+        key: m['key'] as String,
+        name: m['name'] as String,
+        type: m['type'] == 'income' ? 'income' : 'expense',
+        icon: m['icon'] as String? ?? 'star',
+        colorValue: (m['color'] as num?)?.toInt() ?? 0xFF868E96,
+        archived: m['archived'] == true,
+      );
 }
 
 /// Maqsad ikonlari — endi emoji o'rniga Material ikonlar saqlanadi.

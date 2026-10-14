@@ -1,284 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// KiSA dizayn tizimi — barcha ranglar, tipografiya, masofa, radius va
-/// soyalar shu yerda markazlashgan. Ekranlar faqat shu tokenlardan
-/// foydalanadi, shunda butun ilova bir xil, professional ko'rinishga ega bo'ladi.
-
-// ─── Ranglar ──────────────────────────────────────────────────────────────────
-
-class AppColors {
-  AppColors._();
-
-  // Brend — KiSA teal-yashil (ilova ikonkasi bilan mos)
-  static const brand = Color(0xFF099268);
-  static const brandDark = Color(0xFF087F5B);
-  static const brandDeep = Color(0xFF0B7285);
-  static const brandSoft = Color(0xFF20C997);
-
-  // Semantik
-  static const income = Color(0xFF2F9E44);
-  static const expense = Color(0xFFE8590C);
-  static const warning = Color(0xFFF59F00);
-  static const info = Color(0xFF099268);
-  static const violet = Color(0xFF7048E8);
-
-  // ── Light ──
-  static const lBg = Color(0xFFEFF2F9);
-  static const lSurface = Color(0xFFFFFFFF);
-  static const lSurfaceAlt = Color(0xFFEEF1F8);
-  static const lBorder = Color(0xFFE5E9F2);
-  static const lTextPrimary = Color(0xFF1B2440);
-  static const lTextSecondary = Color(0xFF6B7686);
-  static const lTextTertiary = Color(0xFF9AA4B2);
-
-  // ── Dark ──
-  static const dBg = Color(0xFF0A0F16);
-  static const dSurface = Color(0xFF141C26);
-  static const dSurfaceAlt = Color(0xFF1C2733);
-  static const dBorder = Color(0xFF26323F);
-  static const dTextPrimary = Color(0xFFF4F7FA);
-  static const dTextSecondary = Color(0xFF93A1B0);
-  static const dTextTertiary = Color(0xFF5C6A78);
-
-  // Gradientlar
-  static const balanceGradientLight = [Color(0xFF12B886), Color(0xFF0C8599)];
-  static const balanceGradientDark = [Color(0xFF099268), Color(0xFF0B4F5E)];
-}
-
-/// Mavzuga (light/dark) bog'liq palitra — `context.c` orqali olinadi.
-class AppPalette {
-  final bool isDark;
-  const AppPalette(this.isDark);
-
-  Color get bg => isDark ? AppColors.dBg : AppColors.lBg;
-  Color get surface => isDark ? AppColors.dSurface : AppColors.lSurface;
-  Color get surfaceAlt => isDark ? AppColors.dSurfaceAlt : AppColors.lSurfaceAlt;
-  Color get border => isDark ? AppColors.dBorder : AppColors.lBorder;
-  Color get textPrimary => isDark ? AppColors.dTextPrimary : AppColors.lTextPrimary;
-  Color get textSecondary =>
-      isDark ? AppColors.dTextSecondary : AppColors.lTextSecondary;
-  Color get textTertiary =>
-      isDark ? AppColors.dTextTertiary : AppColors.lTextTertiary;
-  List<Color> get balanceGradient =>
-      isDark ? AppColors.balanceGradientDark : AppColors.balanceGradientLight;
-}
-
-// ─── O'lchamlar ─────────────────────────────────────────────────────────────
-
-class AppRadius {
-  AppRadius._();
-  static const sm = 10.0;
-  static const md = 14.0;
-  static const lg = 18.0;
-  static const xl = 24.0;
-  static const pill = 100.0;
-}
-
-class AppSpacing {
-  AppSpacing._();
-  static const xs = 4.0;
-  static const sm = 8.0;
-  static const md = 12.0;
-  static const lg = 16.0;
-  static const xl = 20.0;
-  static const xxl = 28.0;
-  static const screen = 20.0; // ekran chetidan masofa
-}
-
-// ─── Soyalar ───────────────────────────────────────────────────────────────
-
-class AppShadows {
-  AppShadows._();
-
-  static List<BoxShadow> card(bool isDark) => isDark
-      ? const [
-          BoxShadow(
-            color: Color(0x33000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ]
-      : const [
-          BoxShadow(
-            color: Color(0x0F1B2A4A),
-            blurRadius: 20,
-            offset: Offset(0, 8),
-          ),
-          BoxShadow(
-            color: Color(0x08000000),
-            blurRadius: 2,
-            offset: Offset(0, 1),
-          ),
-        ];
-
-  static List<BoxShadow> brand(Color color) => [
-        BoxShadow(
-          color: color.withValues(alpha: 0.35),
-          blurRadius: 24,
-          offset: const Offset(0, 10),
-        ),
-      ];
-}
-
-// ─── Tema ────────────────────────────────────────────────────────────────────
-
-class AppTheme {
-  AppTheme._();
-
-  static const _font = 'Poppins';
-
-  static SystemUiOverlayStyle overlayStyle(bool isDark) => SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-        statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-        systemNavigationBarColor:
-            isDark ? AppColors.dBg : AppColors.lSurface,
-        systemNavigationBarIconBrightness:
-            isDark ? Brightness.light : Brightness.dark,
-      );
-
-  static ThemeData light() => _build(false);
-  static ThemeData dark() => _build(true);
-
-  static ThemeData _build(bool isDark) {
-    final p = AppPalette(isDark);
-    final base = isDark ? ThemeData.dark() : ThemeData.light();
-
-    final textTheme = _textTheme(base.textTheme, p).apply(fontFamily: _font);
-
-    return base.copyWith(
-      scaffoldBackgroundColor: p.bg,
-      canvasColor: p.bg,
-      primaryColor: AppColors.brand,
-      dividerColor: p.border,
-      splashFactory: InkSparkle.splashFactory,
-      colorScheme: (isDark ? const ColorScheme.dark() : const ColorScheme.light())
-          .copyWith(
-        primary: AppColors.brand,
-        secondary: AppColors.brandDeep,
-        surface: p.surface,
-        error: AppColors.expense,
-        onPrimary: Colors.white,
-        onSurface: p.textPrimary,
-      ),
-      textTheme: textTheme,
-      appBarTheme: AppBarTheme(
-        backgroundColor: p.bg,
-        foregroundColor: p.textPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        centerTitle: false,
-        systemOverlayStyle: overlayStyle(isDark),
-        titleTextStyle: textTheme.titleLarge,
-      ),
-      cardColor: p.surface,
-      dividerTheme: DividerThemeData(color: p.border, thickness: 1, space: 1),
-      iconTheme: IconThemeData(color: p.textSecondary),
-      snackBarTheme: SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: isDark ? AppColors.dSurfaceAlt : AppColors.lTextPrimary,
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 13.5),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md)),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: p.surfaceAlt,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        hintStyle: TextStyle(color: p.textTertiary, fontSize: 14.5),
-        labelStyle: TextStyle(color: p.textSecondary, fontSize: 14.5),
-        floatingLabelStyle: const TextStyle(
-            color: AppColors.brand, fontWeight: FontWeight.w600),
-        prefixIconColor: p.textTertiary,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: BorderSide(color: p.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: BorderSide(color: p.border),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.brand, width: 1.6),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.expense),
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.brand,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          minimumSize: const Size.fromHeight(54),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md)),
-          textStyle: const TextStyle(
-              fontSize: 16, fontWeight: FontWeight.w700, fontFamily: _font),
-        ),
-      ),
-      dialogTheme: DialogThemeData(
-        backgroundColor: p.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.xl)),
-        titleTextStyle: textTheme.titleMedium,
-      ),
-      bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: p.surface,
-        modalBackgroundColor: p.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
-        ),
-      ),
-    );
-  }
-
-  static TextTheme _textTheme(TextTheme base, AppPalette p) {
-    TextStyle s(double size, FontWeight w,
-            {Color? color, double? height, double? spacing}) =>
-        TextStyle(
-          fontFamily: _font,
-          fontSize: size,
-          fontWeight: w,
-          height: height,
-          letterSpacing: spacing,
-          color: color ?? p.textPrimary,
-        );
-
-    return base.copyWith(
-      displaySmall: s(32, FontWeight.w800, spacing: -0.5),
-      headlineMedium: s(26, FontWeight.w800, spacing: -0.4),
-      headlineSmall: s(22, FontWeight.w700, spacing: -0.3),
-      titleLarge: s(19, FontWeight.w700, spacing: -0.2),
-      titleMedium: s(16, FontWeight.w700),
-      titleSmall: s(14, FontWeight.w600),
-      bodyLarge: s(15, FontWeight.w500, height: 1.4),
-      bodyMedium: s(14, FontWeight.w400, color: p.textSecondary, height: 1.45),
-      bodySmall: s(12.5, FontWeight.w400, color: p.textSecondary, height: 1.4),
-      labelLarge: s(14, FontWeight.w600),
-      labelSmall: s(11.5, FontWeight.w600, color: p.textTertiary, spacing: 0.3),
-    );
-  }
-}
-
-// ─── Qulay kirish kengaytmalari ───────────────────────────────────────────────
-
-extension ThemeContext on BuildContext {
-  bool get isDark => Theme.of(this).brightness == Brightness.dark;
-  AppPalette get c => AppPalette(isDark);
-  TextTheme get t => Theme.of(this).textTheme;
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  KiSA — Design Spec tokenlari (KISA_DESIGN_SPEC.md, Section 1)
-//  Yangi ekranlar (onboarding, dashboard) shu tokenlardan foydalanadi.
-// ════════════════════════════════════════════════════════════════════════════
+/// KiSA dizayn tizimi — "Liquid Glass". Barcha ranglar, tipografiya, masofa,
+/// radius, soyalar va harakat (motion) shu yerda markazlashgan. Ekranlar
+/// faqat shu tokenlardan foydalanadi: yuzalar shaffof shisha, ostida esa
+/// global harakatlanuvchi aurora fon (widgets/glass.dart) ko'rinib turadi.
 
 class KColors {
   KColors._();
@@ -287,43 +13,80 @@ class KColors {
   /// yorug'/quyuq rang qaytaradi — butun ilova avtomatik moslashadi.
   static bool isDark = false;
 
-  // Surfaces (temaga bog'liq)
-  static Color get bg =>
-      isDark ? const Color(0xFF0E1116) : const Color(0xFFEEF1F6);
+  // ── Fon (aurora ostidagi asosiy rang) ──────────────────────────────────────
+  static Color get base =>
+      isDark ? const Color(0xFF060A12) : const Color(0xFFE8F0F3);
+
+  // ── Shisha yuzalar ─────────────────────────────────────────────────────────
+  /// Shisha karta / panel to'ldirgichi (shaffof).
   static Color get card =>
-      isDark ? const Color(0xFF181B22) : const Color(0xFFFFFFFF);
+      isDark ? const Color(0x17FFFFFF) : const Color(0x8CFFFFFF);
+
+  /// Ko'proq to'q shisha — pastki oyna, dialog, navigatsiya paneli.
+  static Color get sheet =>
+      isDark ? const Color(0xCC111722) : const Color(0xD9F7FAFB);
+
+  /// Bo'rtib turgan element — tanlangan segment, toggle tugmachasi.
+  static Color get raised =>
+      isDark ? const Color(0x33FFFFFF) : const Color(0xF2FFFFFF);
+
+  /// Ichkariga botgan maydon — input, chip, segment treki.
+  static Color get bg =>
+      isDark ? const Color(0x0FFFFFFF) : const Color(0x0D0F172A);
+
+  /// Shisha chegarasi (yuqori yorug' qirra → pastki xira qirra).
+  static Color get rimTop =>
+      isDark ? const Color(0x3DFFFFFF) : const Color(0xE6FFFFFF);
+  static Color get rimBottom =>
+      isDark ? const Color(0x0AFFFFFF) : const Color(0x40FFFFFF);
+
   static const dark = Color(0xFF14161F); // quyuq summary karta (har ikkalada)
 
-  // Text (temaga bog'liq)
+  // ── Matn ───────────────────────────────────────────────────────────────────
   static Color get ink =>
-      isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A);
+      isDark ? const Color(0xFFF3F6FA) : const Color(0xFF0B1424);
   static Color get sub =>
-      isDark ? const Color(0xFF98A1B0) : const Color(0xFF6B7280);
+      isDark ? const Color(0xFFA3ADBD) : const Color(0xFF5B6576);
   static Color get mut =>
-      isDark ? const Color(0xFF6B7480) : const Color(0xFF9AA1AD);
+      isDark ? const Color(0xFF6E7888) : const Color(0xFF8B94A3);
   static Color get line =>
-      isDark ? const Color(0xFF262A33) : const Color(0xFFEDEFF3);
+      isDark ? const Color(0x14FFFFFF) : const Color(0x120F172A);
 
-  // KiSA brend
+  // ── KiSA brend ─────────────────────────────────────────────────────────────
   static const primary = Color(0xFF1C9D67); // yashil aksent
   static const gradStart = Color(0xFF15737F); // teal (gradient past-chap)
   static const gradMid = Color(0xFF1C8A74);
   static const gradEnd = Color(0xFF2FA169); // yashil (gradient yuqori-o'ng)
-  static const greenBg = Color(0xFFE2F4EC); // yashil tint (ikon foni)
+  static Color get greenBg => primary.withValues(alpha: isDark ? 0.22 : 0.14);
 
-  // Semantik / kategoriya
+  // ── Semantik / kategoriya ──────────────────────────────────────────────────
   static const danger = Color(0xFFF2585B);
-  static const dangerBg = Color(0xFFFDECEC);
+  static Color get dangerBg => danger.withValues(alpha: isDark ? 0.2 : 0.12);
   static const orange = Color(0xFFFF8B3D);
-  static const orangeBg = Color(0xFFFFF1E6);
+  static Color get orangeBg => orange.withValues(alpha: 0.14);
   static const blue = Color(0xFF4C8DFF);
-  static const blueBg = Color(0xFFE9F0FF);
+  static Color get blueBg => blue.withValues(alpha: 0.14);
   static const purple = Color(0xFF8B5CF6);
-  static const purpleBg = Color(0xFFEDE9FE);
+  static Color get purpleBg => purple.withValues(alpha: 0.14);
   static const pink = Color(0xFFEC4899);
-  static const pinkBg = Color(0xFFFCE8F3);
+  static Color get pinkBg => pink.withValues(alpha: 0.14);
   static const indigo = Color(0xFF6366F1);
-  static const indigoBg = Color(0xFFE8EAFF);
+  static Color get indigoBg => indigo.withValues(alpha: 0.14);
+
+  /// Aurora fon dog'lari (yorug' / quyuq tema).
+  static List<Color> get aurora => isDark
+      ? const [
+          Color(0xFF0F766E), // teal
+          Color(0xFF4338CA), // indigo
+          Color(0xFF7C3AED), // binafsha
+          Color(0xFF047857), // yashil
+        ]
+      : const [
+          Color(0xFF7DDBC0), // yalpiz
+          Color(0xFF93C5FD), // osmon
+          Color(0xFFC4B5FD), // lavanda
+          Color(0xFFFDE68A), // shaftoli-sariq
+        ];
 }
 
 /// KiSA signature gradienti (logo, balans kartasi, asosiy CTA, FAB).
@@ -334,6 +97,10 @@ const kGradient = LinearGradient(
   stops: [0.0, 0.55, 1.0],
 );
 
+/// false bo'lsa Inter yuklanmaydi, tizim shrifti ishlatiladi — widget
+/// testlarida tarmoq/shrift fayli yo'q bo'lgani uchun.
+bool kUseGoogleFonts = true;
+
 /// Tipografiya yordamchisi — Inter (google_fonts). Offline birinchi ishga
 /// tushishda tizim shriftiga zaxiraga tushadi, keyin keshlanadi.
 TextStyle k(
@@ -342,36 +109,165 @@ TextStyle k(
   Color? c,
   double? ls,
   double? height,
-}) =>
-    GoogleFonts.inter(
-      fontSize: size,
-      fontWeight: w,
-      color: c ?? KColors.ink,
-      letterSpacing: ls,
-      height: height,
-    );
+}) {
+  final style = TextStyle(
+    fontSize: size,
+    fontWeight: w,
+    color: c ?? KColors.ink,
+    // Katta sarlavhalar biroz zichroq — zamonaviy ko'rinish
+    letterSpacing: ls ?? (size >= 20 ? -0.4 : null),
+    height: height,
+  );
+  return kUseGoogleFonts ? GoogleFonts.inter(textStyle: style) : style;
+}
 
 // Radii
-const rCardLg = 24.0; // katta kartalar
-const rCard = 18.0; // standart kartalar / qatorlar
-const rBalance = 28.0; // balans hero kartasi
-const rBtn = 16.0; // tugmalar
-const rTile = 14.0; // ikon tugmalar / inputlar
-const rIconSq = 9.0; // kichik tint ikon kvadratchalar
+const rCardLg = 28.0; // katta kartalar
+const rCard = 22.0; // standart kartalar / qatorlar
+const rBalance = 32.0; // balans hero kartasi
+const rBtn = 18.0; // tugmalar
+const rTile = 16.0; // ikon tugmalar / inputlar
+const rIconSq = 10.0; // kichik tint ikon kvadratchalar
 
 // Sahifa padding
 const kPad = EdgeInsets.symmetric(horizontal: 20);
 
-// Soyalar
+// Soyalar — shisha ostidan ko'rinib qolmasligi uchun juda yengil va keng
 const kSoftShadow = [
-  BoxShadow(color: Color(0x0F0F172A), offset: Offset(0, 8), blurRadius: 18),
+  BoxShadow(color: Color(0x0A0B1424), offset: Offset(0, 8), blurRadius: 24),
 ];
 const kCardShadow = [
-  BoxShadow(color: Color(0x0D0F172A), offset: Offset(0, 10), blurRadius: 24),
+  BoxShadow(color: Color(0x0F0B1424), offset: Offset(0, 12), blurRadius: 32),
 ];
 const kGreenShadow = [
-  BoxShadow(color: Color(0x5915737F), offset: Offset(0, 12), blurRadius: 24),
+  BoxShadow(color: Color(0x4D15737F), offset: Offset(0, 14), blurRadius: 28),
 ];
 const kFabShadow = [
-  BoxShadow(color: Color(0x7315737F), offset: Offset(0, 10), blurRadius: 16),
+  BoxShadow(color: Color(0x6615737F), offset: Offset(0, 10), blurRadius: 22),
 ];
+
+// ── Harakat (motion) ──────────────────────────────────────────────────────────
+
+class KMotion {
+  KMotion._();
+
+  static const fast = Duration(milliseconds: 160);
+  static const medium = Duration(milliseconds: 320);
+  static const slow = Duration(milliseconds: 520);
+
+  /// Yumshoq "prujina" — biroz oshib ketib joyiga qaytadi.
+  static const spring = Cubic(0.34, 1.36, 0.64, 1.0);
+
+  /// Tez boshlanib, silliq to'xtaydi (iOS uslubi).
+  static const emphasized = Cubic(0.2, 0.9, 0.1, 1.0);
+}
+
+/// Sahifa o'tishlari. Sahifalar shaffof (ostida umumiy aurora fon), shuning
+/// uchun ostidagi sahifa yangi sahifa ochilayotganda xiralashib yo'qoladi —
+/// aks holda ikki sahifa matni ustma-ust ko'rinardi. iOS'da tizim surish
+/// (swipe-back) imo-ishorasi saqlanadi.
+class GlassPageTransitionsBuilder extends PageTransitionsBuilder {
+  const GlassPageTransitionsBuilder();
+
+  static const _cupertino = CupertinoPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final platform = Theme.of(context).platform;
+    final Widget incoming;
+    if (platform == TargetPlatform.iOS || platform == TargetPlatform.macOS) {
+      incoming = _cupertino.buildTransitions(
+          route, context, animation, secondaryAnimation, child);
+    } else {
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: KMotion.emphasized,
+        reverseCurve: Curves.easeInCubic,
+      );
+      incoming = FadeTransition(
+        opacity: curved,
+        child: ScaleTransition(
+          scale: Tween(begin: 0.94, end: 1.0).animate(curved),
+          child: SlideTransition(
+            position: Tween(begin: const Offset(0, 0.03), end: Offset.zero)
+                .animate(curved),
+            child: child,
+          ),
+        ),
+      );
+    }
+    // Ustidan yangi sahifa ochilganda bu sahifa xiralashadi va biroz kichrayadi
+    final covered = CurvedAnimation(
+        parent: secondaryAnimation, curve: Curves.easeOutCubic);
+    return FadeTransition(
+      opacity: Tween(begin: 1.0, end: 0.0).animate(covered),
+      child: ScaleTransition(
+        scale: Tween(begin: 1.0, end: 0.97).animate(covered),
+        child: incoming,
+      ),
+    );
+  }
+}
+
+/// Butun ilova uchun ThemeData — shaffof scaffold, shisha dialog/snackbar.
+ThemeData kTheme(bool dark) {
+  final brightness = dark ? Brightness.dark : Brightness.light;
+  const transitions = GlassPageTransitionsBuilder();
+  return ThemeData(
+    brightness: brightness,
+    useMaterial3: true,
+    scaffoldBackgroundColor: Colors.transparent,
+    canvasColor: Colors.transparent,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: KColors.primary,
+      primary: KColors.primary,
+      brightness: brightness,
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: transitions,
+      TargetPlatform.iOS: transitions,
+      TargetPlatform.macOS: transitions,
+      TargetPlatform.windows: transitions,
+      TargetPlatform.linux: transitions,
+      TargetPlatform.fuchsia: transitions,
+    }),
+    splashFactory: NoSplash.splashFactory,
+    highlightColor: Colors.transparent,
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor:
+          dark ? const Color(0xE61B2230) : const Color(0xE60B1424),
+      contentTextStyle: k(13.5, w: FontWeight.w500, c: Colors.white),
+      elevation: 0,
+      insetPadding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(rTile)),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: KColors.sheet,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(rCardLg),
+        side: BorderSide(color: KColors.rimTop, width: 1),
+      ),
+    ),
+    datePickerTheme: DatePickerThemeData(
+      backgroundColor: KColors.sheet,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(rCardLg)),
+    ),
+    timePickerTheme: TimePickerThemeData(
+      backgroundColor: KColors.sheet,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(rCardLg)),
+    ),
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: KColors.primary,
+    ),
+  );
+}

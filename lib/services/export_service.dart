@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/transaction_model.dart';
@@ -12,6 +14,7 @@ class ExportService {
     'expense': 'Chiqim',
     'transfer': "O'tkazma",
     'exchange': 'Ayirboshlash',
+    'adjust': 'Qoldiq tuzatish',
   };
 
   static String _csvField(String v) {
@@ -31,7 +34,7 @@ class ExportService {
       final date =
           '${t.date.year}-${t.date.month.toString().padLeft(2, '0')}-${t.date.day.toString().padLeft(2, '0')}';
       final type = _typeLabels[t.type] ?? t.type;
-      final cat = t.isMovement ? '' : s.cat(t.category);
+      final cat = t.isSystem ? '' : s.cat(t.category);
       final place = t.place == 'card' ? 'Karta' : 'Naqd';
       final row = [
         date,
@@ -45,13 +48,21 @@ class ExportService {
       buf.writeln(row);
     }
 
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/kisa_tranzaksiyalar.csv');
-    await file.writeAsString(buf.toString());
+    // BOM — Excel kirill va maxsus belgilarni to'g'ri ko'rsatishi uchun
+    final bytes = Uint8List.fromList(utf8.encode('﻿$buf'));
+    const name = 'kisa_tranzaksiyalar.csv';
 
-    await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'text/csv')],
-      subject: 'KiSA — tranzaksiyalar',
-    );
+    final XFile xfile;
+    if (kIsWeb) {
+      // Brauzerda fayl tizimi yo'q — xotiradan ulashiladi/yuklab olinadi
+      xfile = XFile.fromData(bytes, mimeType: 'text/csv', name: name);
+    } else {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$name');
+      await file.writeAsBytes(bytes);
+      xfile = XFile(file.path, mimeType: 'text/csv');
+    }
+
+    await Share.shareXFiles([xfile], subject: 'KiSA — tranzaksiyalar');
   }
 }

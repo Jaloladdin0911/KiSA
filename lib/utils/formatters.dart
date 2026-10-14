@@ -15,8 +15,12 @@ class Money {
   ];
 
   /// Ajratuvchili matnni songa aylantiradi: "1 250 000.50" -> 1250000.5
+  /// Har qanday bo'shliq (oddiy, U+00A0, U+202F — `plain()` shuni ishlatadi)
+  /// olib tashlanadi, vergul esa kasr nuqtasi deb qabul qilinadi.
   static double? parse(String text) {
-    final cleaned = text.replaceAll(' ', '').replaceAll(' ', '').trim();
+    final cleaned = text
+        .replaceAll(RegExp(r'\s'), '') // \s U+00A0 va U+202F ni ham qamraydi
+        .replaceAll(',', '.');
     if (cleaned.isEmpty) return null;
     return double.tryParse(cleaned);
   }
@@ -107,7 +111,8 @@ class _ThousandsInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
       TextEditingValue oldValue, TextEditingValue newValue) {
-    String text = newValue.text.replaceAll(' ', '');
+    // Ba'zi klaviaturalarda kasr belgisi vergul — uni nuqtaga aylantiramiz
+    String text = newValue.text.replaceAll(' ', '').replaceAll(',', '.');
     if (text.isEmpty) return newValue.copyWith(text: '');
 
     // Faqat raqam va bitta nuqtaga ruxsat

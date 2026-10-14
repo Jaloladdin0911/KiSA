@@ -4,6 +4,29 @@
 
 **Project context:** Flutter + Provider + Hive (fully offline, no login required). Existing structure: `lib/theme/app_theme.dart`, `lib/screens/*.dart`, `lib/widgets/*.dart`, `lib/services/*`.
 
+> **⚠️ v2.1 — "Liquid Glass" (amaldagi dizayn).** Quyidagi 1–2-bo'limlardagi
+> tokenlar (opaque `bg`/`card`, Mastercard dekori, docked FAB) **eskirgan**.
+> Hozirgi manba — kod:
+>
+> - [`lib/theme/app_theme.dart`](../lib/theme/app_theme.dart) — tokenlar:
+>   `KColors.base/card/sheet/raised/bg(inset)/rimTop/rimBottom/aurora`,
+>   radiuslar, yengil soyalar, `KMotion` (spring, emphasized), sahifa
+>   o'tishlari (`GlassPageTransitionsBuilder`), `kTheme()`.
+> - [`lib/widgets/glass.dart`](../lib/widgets/glass.dart) — `KAuroraBackground`
+>   (global harakatlanuvchi fon), `Glass` (shaffof yuza + yorug' qirra; `blur`
+>   faqat navigatsiya/oyna/tugmalarda), `KPressable` (prujina bosish + haptic +
+>   semantika), `KFadeSlideIn` (stagger paydo bo'lish), `showKSheet`,
+>   `showKDialog`.
+> - [`lib/widgets/kit.dart`](../lib/widgets/kit.dart) — `KCard`, `KSegmented`
+>   (siljiydigan shisha tanlov), `KPrimaryButton`, `KIconButton`,
+>   `KCircleButton`, `KBackButton`.
+>
+> Qoidalar: scaffoldlar shaffof (`Colors.transparent`); yangi pastki oyna va
+> dialoglar faqat `showKSheet`/`showKDialog` orqali; ikonkali tugmalarga
+> `label` (ekran o'quvchisi uchun) beriladi; matnli `Row`larda `Expanded` +
+> `ellipsis` (ruscha matnlar uzun). `test/ui_smoke_test.dart` barcha asosiy
+> ekranlarni yorug'/quyuq temada ochib, overflow'larni ushlaydi.
+
 **Reference device:** designed at 390×844 (iPhone). Implement responsively — use padding/Expanded/Flexible, not hardcoded 390px widths. Standard screen horizontal padding = **20px**, content max width ≈ 350.
 
 ---

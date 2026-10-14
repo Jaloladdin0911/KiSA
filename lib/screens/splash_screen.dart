@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/app_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/kisa_logo.dart';
@@ -100,13 +99,13 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     await _exitCtrl.forward();
     if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    final seen = prefs.getBool('seen_onboarding') ?? false;
-    if (!mounted) return;
+    final provider = context.read<AppProvider>();
     final String target;
-    if (!seen) {
+    if (!provider.isRegistered) {
       target = '/onboarding';
-    } else if (context.read<AppProvider>().pinEnabled) {
+    } else if (!provider.isLoggedIn) {
+      target = '/login';
+    } else if (provider.pinEnabled) {
       target = '/lock';
     } else {
       target = '/home';
@@ -127,7 +126,7 @@ class _SplashScreenState extends State<SplashScreen>
     return FadeTransition(
       opacity: _exitFade,
       child: Scaffold(
-        backgroundColor: KColors.bg,
+        backgroundColor: Colors.transparent,
         body: Stack(
           children: [
             Center(

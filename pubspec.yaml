@@ -34,9 +34,10 @@ dependencies:
   # Tashqi havolalarni ochish (maxfiylik siyosati)
   url_launcher: ^6.3.0
 
-  # Ma'lumot eksport/zaxira (CSV ulashish)
+  # Ma'lumot eksport/zaxira (CSV ulashish, JSON zaxirani tanlab tiklash)
   share_plus: ^9.0.0
   path_provider: ^2.1.4
+  file_picker: ^8.0.7
 
   # Xavfsizlik (PIN hash + biometrik qulf)
   crypto: ^3.0.5
@@ -78,17 +79,3 @@ flutter:
 
   assets:
     - assets/icon/
-
-  fonts:
-    - family: Poppins
-      fonts:
-        - asset: assets/fonts/Poppins-Regular.ttf
-          weight: 400
-        - asset: assets/fonts/Poppins-Medium.ttf
-          weight: 500
-        - asset: assets/fonts/Poppins-SemiBold.ttf
-          weight: 600
-        - asset: assets/fonts/Poppins-Bold.ttf
-          weight: 700
-        - asset: assets/fonts/Poppins-ExtraBold.ttf
-          weight: 800

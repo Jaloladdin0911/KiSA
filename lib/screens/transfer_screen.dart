@@ -5,18 +5,20 @@ import '../services/app_provider.dart';
 import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/kit.dart';
 
 /// O'tkazma / Ayirboshlash — yangi dizayn (KColors/k).
 /// O'tkazma: bir valyuta ichida Naqd↔Karta. Ayirboshlash: so'm↔dollar.
 class TransferScreen extends StatefulWidget {
-  const TransferScreen({super.key});
+  final String initialMode; // 'transfer' | 'exchange'
+  const TransferScreen({super.key, this.initialMode = 'transfer'});
 
   @override
   State<TransferScreen> createState() => _TransferScreenState();
 }
 
 class _TransferScreenState extends State<TransferScreen> {
-  String _mode = 'transfer'; // transfer | exchange
+  late String _mode = widget.initialMode; // transfer | exchange
 
   // O'tkazma
   String _currency = 'UZS';
@@ -116,7 +118,7 @@ class _TransferScreenState extends State<TransferScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: KColors.bg,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         child: Column(
           children: [
@@ -125,19 +127,9 @@ class _TransferScreenState extends State<TransferScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
               child: Row(
                 children: [
-                  GestureDetector(
+                  KCircleButton(
+                    icon: Icons.close_rounded,
                     onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: KColors.card,
-                        shape: BoxShape.circle,
-                        boxShadow: kSoftShadow,
-                      ),
-                      child: Icon(Icons.close_rounded,
-                          size: 22, color: KColors.ink),
-                    ),
                   ),
                   Expanded(
                     child: Center(
@@ -177,20 +169,7 @@ class _TransferScreenState extends State<TransferScreen> {
             // Save
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-              child: GestureDetector(
-                onTap: _save,
-                child: Container(
-                  height: 56,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: kGradient,
-                    borderRadius: BorderRadius.circular(rBtn),
-                    boxShadow: kGreenShadow,
-                  ),
-                  child: Text(s('save'),
-                      style: k(16, w: FontWeight.w600, c: Colors.white)),
-                ),
-              ),
+              child: KPrimaryButton(label: s('save'), onTap: _save),
             ),
           ],
         ),
@@ -321,38 +300,6 @@ class _Seg extends StatelessWidget {
       {required this.options, required this.value, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: KColors.isDark ? const Color(0xFF23262F) : const Color(0xFFE6E9EF),
-        borderRadius: BorderRadius.circular(rTile),
-      ),
-      child: Row(
-        children: options.map((o) {
-          final active = o.$1 == value;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => onChanged(o.$1),
-              behavior: HitTestBehavior.opaque,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                height: 42,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: active ? KColors.card : Colors.transparent,
-                  borderRadius: BorderRadius.circular(rTile - 3),
-                  boxShadow: active ? kSoftShadow : null,
-                ),
-                child: Text(o.$2,
-                    style: k(14,
-                        w: active ? FontWeight.w600 : FontWeight.w500,
-                        c: active ? KColors.ink : KColors.sub)),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      KSegmented(options: options, value: value, onChanged: onChanged);
 }

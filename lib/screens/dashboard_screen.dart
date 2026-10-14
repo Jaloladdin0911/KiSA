@@ -6,14 +6,17 @@ import '../l10n/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../utils/categories.dart';
+import '../widgets/kit.dart';
+import '../widgets/movement_sheet.dart';
 import 'add_transaction_screen.dart';
+import 'recurring_screen.dart';
 import 'goals_screen.dart';
 import 'transactions_screen.dart';
 import 'transfer_screen.dart';
 import 'accounts_screen.dart';
 
-/// Asosiy ekran — KISA_DESIGN_SPEC.md, Section 5.
-/// Token (KColors/kGradient/k) va real Provider ma'lumotlari bilan, responsive.
+/// Asosiy ekran — "Liquid Glass": aurora fon ustida shisha kartalar,
+/// bo'limlar navbatma-navbat paydo bo'ladi, summalar sanab chiqadi.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -21,34 +24,32 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
+        final sections = <Widget>[
+          _Header(provider: provider),
+          KPressable(
+            scale: 0.98,
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const AccountsScreen())),
+            child: _BalanceCard(provider: provider),
+          ),
+          if (provider.currencyBalance('USD') != 0) _UsdChip(provider: provider),
+          _StatRow(provider: provider),
+          _QuickActions(provider: provider),
+          _RecentSection(provider: provider),
+        ];
         return Scaffold(
-          backgroundColor: KColors.bg,
+          backgroundColor: Colors.transparent,
           body: SafeArea(
             bottom: false,
             child: ListView(
-              padding: const EdgeInsets.only(bottom: 120),
+              padding: const EdgeInsets.only(top: 6, bottom: 130),
               children: [
-                const SizedBox(height: 6),
-                Padding(padding: kPad, child: _Header(provider: provider)),
-                const SizedBox(height: 20),
-                Padding(
-                  padding: kPad,
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => const AccountsScreen())),
-                    child: _BalanceCard(provider: provider),
+                for (var i = 0; i < sections.length; i++)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                        20, i == 0 ? 0 : (i == 1 ? 20 : 16), 20, 0),
+                    child: KFadeSlideIn.stagger(i, child: sections[i]),
                   ),
-                ),
-                if (provider.currencyBalance('USD') != 0) ...[
-                  const SizedBox(height: 12),
-                  Padding(padding: kPad, child: _UsdChip(provider: provider)),
-                ],
-                const SizedBox(height: 16),
-                Padding(padding: kPad, child: _StatRow(provider: provider)),
-                const SizedBox(height: 22),
-                Padding(padding: kPad, child: _QuickActions(provider: provider)),
-                const SizedBox(height: 24),
-                Padding(padding: kPad, child: _RecentSection(provider: provider)),
               ],
             ),
           ),
@@ -68,6 +69,28 @@ String _initials(String name) {
       .toUpperCase();
 }
 
+/// Summa o'zgarganda eski qiymatdan yangisiga silliq "sanab" o'tadi.
+class _CountUp extends StatelessWidget {
+  final double value;
+  final String Function(double) format;
+  final TextStyle style;
+  const _CountUp(
+      {super.key,
+      required this.value,
+      required this.format,
+      required this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: value),
+      duration: const Duration(milliseconds: 900),
+      curve: KMotion.emphasized,
+      builder: (_, v, __) => Text(format(v), style: style),
+    );
+  }
+}
+
 // ── Sarlavha ──────────────────────────────────────────────────────────────────
 
 class _Header extends StatelessWidget {
@@ -76,80 +99,102 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final upcoming = provider.upcomingRecurring(days: 3).isNotEmpty;
     return Row(
       children: [
+        // Gradient halqali avatar
         Container(
-          width: 46,
-          height: 46,
+          width: 48,
+          height: 48,
+          padding: const EdgeInsets.all(2),
           decoration: const BoxDecoration(
-            color: Color(0xFFE2E8F0),
+            gradient: kGradient,
             shape: BoxShape.circle,
           ),
-          alignment: Alignment.center,
-          child: Text(_initials(provider.userName),
-              style: k(15, w: FontWeight.w700, c: const Color(0xFF475569))),
+          child: Glass(
+            borderRadius: BorderRadius.circular(24),
+            shadow: const [],
+            color: KColors.sheet,
+            child: Center(
+              child: Text(_initials(provider.userName),
+                  style: k(15, w: FontWeight.w700, c: KColors.primary)),
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(provider.s('greeting'), style: k(12, c: KColors.sub)),
+              Text(provider.s('greeting'), style: k(12.5, c: KColors.sub)),
               const SizedBox(height: 1),
               Text(provider.userName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: k(17, w: FontWeight.w600)),
+                  style: k(18, w: FontWeight.w700)),
             ],
           ),
         ),
-        _SquareButton(
-          icon: Icons.notifications_none_rounded,
-          dot: true,
-          onTap: () => _soon(context),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            KIconButton(
+              icon: Icons.notifications_none_rounded,
+              label: provider.s('upcoming_payments'),
+              onTap: () => _showUpcoming(context, provider),
+            ),
+            // Nuqta faqat yaqin 3 kunda takroriy to'lov bo'lsa — "puls" bilan
+            if (upcoming)
+              const Positioned(top: 10, right: 11, child: _PulseDot()),
+          ],
         ),
       ],
     );
   }
 }
 
-class _SquareButton extends StatelessWidget {
-  final IconData icon;
-  final bool dot;
-  final VoidCallback onTap;
-  const _SquareButton(
-      {required this.icon, this.dot = false, required this.onTap});
+class _PulseDot extends StatefulWidget {
+  const _PulseDot();
+
+  @override
+  State<_PulseDot> createState() => _PulseDotState();
+}
+
+class _PulseDotState extends State<_PulseDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 1600))
+    ..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 46,
-        height: 46,
-        decoration: BoxDecoration(
-          color: KColors.card,
-          borderRadius: BorderRadius.circular(rTile),
-          boxShadow: kSoftShadow,
-        ),
-        child: Stack(
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (_, __) => Stack(
           alignment: Alignment.center,
+          clipBehavior: Clip.none,
           children: [
-            Icon(icon, size: 22, color: KColors.ink),
-            if (dot)
-              Positioned(
-                top: 12,
-                right: 13,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: KColors.danger,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: KColors.card, width: 1.5),
-                  ),
-                ),
+            Container(
+              width: 8 + 12 * _c.value,
+              height: 8 + 12 * _c.value,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: KColors.danger.withValues(alpha: 0.35 * (1 - _c.value)),
               ),
+            ),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                  color: KColors.danger, shape: BoxShape.circle),
+            ),
           ],
         ),
       ),
@@ -167,8 +212,20 @@ class _BalanceCard extends StatefulWidget {
   State<_BalanceCard> createState() => _BalanceCardState();
 }
 
-class _BalanceCardState extends State<_BalanceCard> {
+class _BalanceCardState extends State<_BalanceCard>
+    with SingleTickerProviderStateMixin {
   bool _hidden = false;
+
+  // Yaltirash: har 6 soniyada kartadan yorug'lik tasmasi o'tadi
+  late final AnimationController _sheen = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 6000))
+    ..repeat();
+
+  @override
+  void dispose() {
+    _sheen.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -183,135 +240,205 @@ class _BalanceCardState extends State<_BalanceCard> {
     final double? momPct =
         lastExp > 0 ? (thisExp - lastExp) / lastExp * 100 : null;
 
-    return Container(
-      width: double.infinity,
-      height: 190,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        gradient: kGradient,
-        borderRadius: BorderRadius.circular(rBalance),
-        boxShadow: kGreenShadow,
+    return Glass(
+      tint: LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: [
+          KColors.gradStart.withValues(alpha: 0.92),
+          KColors.gradMid.withValues(alpha: 0.86),
+          KColors.gradEnd.withValues(alpha: 0.80),
+        ],
+        stops: const [0.0, 0.55, 1.0],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(p.s('total_balance'),
-                  style: k(13, w: FontWeight.w500, c: white82)),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => setState(() => _hidden = !_hidden),
-                child: Icon(
-                  _hidden
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  size: 20,
-                  color: Colors.white.withValues(alpha: 0.85),
+      borderRadius: BorderRadius.circular(rBalance),
+      shadow: kGreenShadow,
+      child: SizedBox(
+        height: 200,
+        child: Stack(
+          children: [
+            // Suyuq shisha pufakchalar (dekor)
+            Positioned(
+              right: -40,
+              top: -50,
+              child: _bubble(170, 0.16),
+            ),
+            Positioned(
+              left: -30,
+              bottom: -70,
+              child: _bubble(150, 0.10),
+            ),
+            // Yorug'lik tasmasi
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _sheen,
+                  builder: (_, __) {
+                    // Davrning faqat birinchi 30% ida o'tadi, qolgani tinch
+                    final t = (_sheen.value / 0.3).clamp(0.0, 1.0);
+                    final x = -1.6 + 3.2 * Curves.easeInOut.transform(t);
+                    return DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment(x - 0.5, -1),
+                          end: Alignment(x + 0.5, 1),
+                          colors: [
+                            Colors.white.withValues(alpha: 0),
+                            Colors.white.withValues(alpha: 0.16),
+                            Colors.white.withValues(alpha: 0),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    _hidden ? '••• •••' : Money.plain(total, currency: 'UZS'),
-                    style: k(34, w: FontWeight.w700, c: Colors.white),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child:
-                    Text(p.s('som'), style: k(15, w: FontWeight.w500, c: white82)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (momPct != null)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(rCard),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    momPct >= 0
-                        ? Icons.north_east_rounded
-                        : Icons.south_east_rounded,
-                    size: 13,
-                    color: Colors.white,
+                  Row(
+                    children: [
+                      Text(p.s('total_balance'),
+                          style: k(13, w: FontWeight.w500, c: white82)),
+                      const Spacer(),
+                      KPressable(
+                        scale: 0.8,
+                        onTap: () => setState(() => _hidden = !_hidden),
+                        child: AnimatedSwitcher(
+                          duration: KMotion.fast,
+                          transitionBuilder: (c, a) =>
+                              ScaleTransition(scale: a, child: c),
+                          child: Icon(
+                            _hidden
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                            key: ValueKey(_hidden),
+                            size: 20,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Text('${momPct.abs().toStringAsFixed(1)}%',
-                      style: k(12, w: FontWeight.w600, c: Colors.white)),
-                  const SizedBox(width: 5),
-                  Text(p.s('vs_last_month'),
-                      style: k(12,
-                          c: Colors.white.withValues(alpha: 0.85))),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: AnimatedSwitcher(
+                            duration: KMotion.medium,
+                            child: _hidden
+                                ? Text('••• •••',
+                                    key: const ValueKey('h'),
+                                    style: k(36,
+                                        w: FontWeight.w700, c: Colors.white))
+                                : _CountUp(
+                                    key: const ValueKey('v'),
+                                    value: total,
+                                    format: (v) =>
+                                        Money.plain(v, currency: 'UZS'),
+                                    style: k(36,
+                                        w: FontWeight.w700, c: Colors.white),
+                                  ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Text(p.s('som'),
+                            style: k(15, w: FontWeight.w500, c: white82)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (momPct != null)
+                    Glass(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      shadow: const [],
+                      borderRadius: BorderRadius.circular(rCard),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            momPct >= 0
+                                ? Icons.north_east_rounded
+                                : Icons.south_east_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text('${momPct.abs().toStringAsFixed(1)}%',
+                              style: k(12,
+                                  w: FontWeight.w600, c: Colors.white)),
+                          const SizedBox(width: 5),
+                          Text(p.s('vs_last_month'),
+                              style: k(12,
+                                  c: Colors.white.withValues(alpha: 0.85))),
+                        ],
+                      ),
+                    ),
+                  const Spacer(),
+                  // Hamyonlar bo'yicha taqsimot (so'm)
+                  Row(
+                    children: [
+                      _walletPart(Icons.payments_outlined, p.s('wallet_cash'),
+                          p.balanceOf('cash', 'UZS')),
+                      const SizedBox(width: 18),
+                      _walletPart(Icons.credit_card_rounded,
+                          p.s('wallet_card'), p.balanceOf('card', 'UZS')),
+                    ],
+                  ),
                 ],
               ),
             ),
-          const Spacer(),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '••••  ••••  ••••  4821',
-                style: k(13,
-                    c: Colors.white.withValues(alpha: 0.55), ls: 1.5),
-              ),
-              const Spacer(),
-              const _MastercardMark(),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-}
 
-class _MastercardMark extends StatelessWidget {
-  const _MastercardMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 38,
-      height: 22,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF5A623),
-                shape: BoxShape.circle,
-              ),
+  Widget _bubble(double size, double alpha) => IgnorePointer(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              center: const Alignment(-0.3, -0.4),
+              colors: [
+                Colors.white.withValues(alpha: alpha * 1.6),
+                Colors.white.withValues(alpha: alpha * 0.3),
+              ],
             ),
+            border: Border.all(
+                color: Colors.white.withValues(alpha: alpha * 1.4)),
           ),
-          Positioned(
-            right: 0,
-            child: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEF4444).withValues(alpha: 0.85),
-                shape: BoxShape.circle,
-              ),
+        ),
+      );
+
+  Widget _walletPart(IconData icon, String label, double amount) {
+    final dim = Colors.white.withValues(alpha: 0.75);
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: dim),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '$label  ${_hidden ? '•••' : Money.compact(amount, 'UZS')}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: k(12.5, w: FontWeight.w500, c: dim),
             ),
           ),
         ],
@@ -329,20 +456,17 @@ class _UsdChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final usd = provider.currencyBalance('USD');
-    return Container(
+    return KCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: KColors.card,
-        borderRadius: BorderRadius.circular(rCard),
-        boxShadow: kSoftShadow,
-      ),
+      onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AccountsScreen())),
       child: Row(
         children: [
           Container(
             width: 34,
             height: 34,
-            decoration: const BoxDecoration(
-                color: KColors.greenBg, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: KColors.greenBg, shape: BoxShape.circle),
             child: const Icon(Icons.attach_money_rounded,
                 size: 18, color: KColors.primary),
           ),
@@ -350,7 +474,11 @@ class _UsdChip extends StatelessWidget {
           Text(provider.s('dollar_account'),
               style: k(13, w: FontWeight.w500, c: KColors.sub)),
           const Spacer(),
-          Text(Money.format(usd, 'USD'), style: k(16, w: FontWeight.w700)),
+          _CountUp(
+            value: usd,
+            format: (v) => Money.format(v, 'USD'),
+            style: k(16, w: FontWeight.w700),
+          ),
         ],
       ),
     );
@@ -365,25 +493,28 @@ class _StatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final income = provider.incomeThisMonth('UZS');
+    final expense = provider.expenseThisMonth('UZS');
+    final total = income + expense;
     return Row(
       children: [
         Expanded(
           child: _StatCard(
             label: provider.s('kirim'),
-            amount: provider.incomeThisMonth('UZS'),
+            amount: income,
+            share: total > 0 ? income / total : 0,
             icon: Icons.south_west_rounded,
             color: KColors.primary,
-            bg: KColors.greenBg,
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 14),
         Expanded(
           child: _StatCard(
             label: provider.s('chiqim'),
-            amount: provider.expenseThisMonth('UZS'),
+            amount: expense,
+            share: total > 0 ? expense / total : 0,
             icon: Icons.north_east_rounded,
             color: KColors.danger,
-            bg: KColors.dangerBg,
           ),
         ),
       ],
@@ -394,49 +525,61 @@ class _StatRow extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final double amount;
+  final double share; // 0..1 — kirim+chiqim ichidagi ulushi
   final IconData icon;
-  final Color color, bg;
+  final Color color;
   const _StatCard({
     required this.label,
     required this.amount,
+    required this.share,
     required this.icon,
     required this.color,
-    required this.bg,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 100,
+    return KCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: KColors.card,
-        borderRadius: BorderRadius.circular(rCard),
-        boxShadow: kSoftShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-                child: Icon(icon, size: 17, color: color),
+      child: SizedBox(
+        height: 92,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.14),
+                      shape: BoxShape.circle),
+                  child: Icon(icon, size: 16, color: color),
+                ),
+                const SizedBox(width: 8),
+                Text(label, style: k(12.5, w: FontWeight.w500, c: KColors.sub)),
+              ],
+            ),
+            const Spacer(),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: _CountUp(
+                value: amount,
+                format: (v) => Money.plain(v, currency: 'UZS'),
+                style: k(18, w: FontWeight.w700),
               ),
-              const SizedBox(width: 8),
-              Text(label, style: k(12, w: FontWeight.w500, c: KColors.sub)),
-            ],
-          ),
-          const Spacer(),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(Money.plain(amount, currency: 'UZS'),
-                style: k(17, w: FontWeight.w600)),
-          ),
-        ],
+            ),
+            const SizedBox(height: 8),
+            // Ulush chizig'i — to'lib boruvchi animatsiya
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: share),
+              duration: const Duration(milliseconds: 900),
+              curve: KMotion.emphasized,
+              builder: (_, v, __) => KProgressBar(
+                  pct: v, color: color, height: 4, track: KColors.bg),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -450,6 +593,8 @@ class _QuickActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    void go(Widget w) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -457,29 +602,25 @@ class _QuickActions extends StatelessWidget {
           label: provider.s('transfer'),
           icon: Icons.swap_horiz_rounded,
           color: KColors.primary,
-          onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TransferScreen())),
+          onTap: () => go(const TransferScreen()),
         ),
         _QuickAction(
           label: provider.s('qa_payment'),
           icon: Icons.bolt_rounded,
           color: KColors.orange,
-          onTap: () => Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => const AddTransactionScreen(initialType: 'expense'),
-          )),
+          onTap: () => go(const AddTransactionScreen(initialType: 'expense')),
         ),
         _QuickAction(
-          label: provider.s('qa_scan'),
-          icon: Icons.qr_code_scanner_rounded,
+          label: provider.s('exchange'),
+          icon: Icons.currency_exchange_rounded,
           color: KColors.blue,
-          onTap: () => _soon(context),
+          onTap: () => go(const TransferScreen(initialMode: 'exchange')),
         ),
         _QuickAction(
           label: provider.s('qa_goal'),
           icon: Icons.flag_rounded,
           color: KColors.purple,
-          onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const GoalsScreen())),
+          onTap: () => go(const GoalsScreen()),
         ),
       ],
     );
@@ -500,24 +641,46 @@ class _QuickAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return KPressable(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: KColors.card,
+      scale: 0.88,
+      child: SizedBox(
+        width: 72,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Glass(
               borderRadius: BorderRadius.circular(rCard),
-              boxShadow: kSoftShadow,
+              child: SizedBox(
+                width: 60,
+                height: 60,
+                child: Center(
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          color.withValues(alpha: 0.24),
+                          color.withValues(alpha: 0.10),
+                        ],
+                      ),
+                    ),
+                    child: Icon(icon, size: 21, color: color),
+                  ),
+                ),
+              ),
             ),
-            child: Icon(icon, size: 24, color: color),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: k(11, w: FontWeight.w500, c: KColors.sub)),
-        ],
+            const SizedBox(height: 8),
+            Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: k(11.5, w: FontWeight.w500, c: KColors.sub)),
+          ],
+        ),
       ),
     );
   }
@@ -531,7 +694,7 @@ class _RecentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final recent = provider.transactions.take(3).toList();
+    final recent = provider.transactions.take(4).toList();
     final s = provider.s;
 
     return Column(
@@ -539,46 +702,96 @@ class _RecentSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(s('recent_actions'), style: k(16, w: FontWeight.w600)),
-            const Spacer(),
-            GestureDetector(
+            Expanded(
+              child: Text(s('recent_actions'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: k(17, w: FontWeight.w700)),
+            ),
+            const SizedBox(width: 8),
+            KPressable(
               onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const TransactionsScreen())),
-              child: Text(s('see_all'),
-                  style: k(13, w: FontWeight.w600, c: KColors.primary)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(s('see_all'),
+                    style: k(13, w: FontWeight.w600, c: KColors.primary)),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        Container(
-          decoration: BoxDecoration(
-            color: KColors.card,
-            borderRadius: BorderRadius.circular(rCardLg),
-            boxShadow: kSoftShadow,
-          ),
+        const SizedBox(height: 12),
+        KCard(
+          radius: rCardLg,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: recent.isEmpty
               ? Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  padding: const EdgeInsets.symmetric(vertical: 26),
                   child: Center(
-                    child: Text(s('no_transactions'),
-                        style: k(13.5, c: KColors.mut)),
+                    child: Column(
+                      children: [
+                        Icon(Icons.receipt_long_rounded,
+                            size: 34, color: KColors.mut),
+                        const SizedBox(height: 8),
+                        Text(s('no_transactions'),
+                            style: k(13.5, c: KColors.mut)),
+                        const SizedBox(height: 16),
+                        // Yangi foydalanuvchi uchun — birinchi qadam
+                        KPressable(
+                          onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const AddTransactionScreen(
+                                      initialType: 'expense'))),
+                          child: Glass(
+                            tint: kGradient,
+                            shadow: kGreenShadow,
+                            borderRadius: BorderRadius.circular(rBtn),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 11),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_rounded,
+                                    size: 18, color: Colors.white),
+                                const SizedBox(width: 6),
+                                Text(s('add_first'),
+                                    style: k(13.5,
+                                        w: FontWeight.w600,
+                                        c: Colors.white)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        // Mavjud pulni kirim deb emas, boshlang'ich qoldiq deb kiritish
+                        KPressable(
+                          onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                  builder: (_) => const AccountsScreen())),
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Text(s('set_opening_balance'),
+                                style: k(13,
+                                    w: FontWeight.w600,
+                                    c: KColors.primary)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : Column(
                   children: [
                     for (int i = 0; i < recent.length; i++) ...[
-                      _TxRow(
-                        tx: recent[i],
-                        strings: s,
-                        onTap: () {
-                          if (!recent[i].isMovement) {
-                            Navigator.of(context).push(MaterialPageRoute(
-                              builder: (_) =>
-                                  AddTransactionScreen(existing: recent[i]),
-                            ));
-                          }
-                        },
+                      KFadeSlideIn(
+                        key: ValueKey(recent[i].id),
+                        delay: Duration(milliseconds: 200 + 50 * i),
+                        offset: 12,
+                        child: _TxRow(
+                          tx: recent[i],
+                          strings: s,
+                          onTap: () => openTransaction(context, recent[i]),
+                        ),
                       ),
                       if (i != recent.length - 1)
                         Divider(
@@ -625,7 +838,15 @@ class _TxRow extends StatelessWidget {
     final String amountStr;
     final Color amountColor;
 
-    if (t.isMovement) {
+    if (t.isAdjust) {
+      // Qoldiq tuzatish — ishorali summa, statistikaga kirmaydi
+      icon = Icons.tune_rounded;
+      color = KColors.indigo;
+      title = strings('balance_adjust');
+      meta = _dateLabel(t.date);
+      amountStr = Money.format(t.amount, t.currency, showSign: true);
+      amountColor = KColors.sub;
+    } else if (t.isMovement) {
       icon = t.type == 'exchange'
           ? Icons.currency_exchange_rounded
           : Icons.swap_horiz_rounded;
@@ -686,8 +907,115 @@ class _TxRow extends StatelessWidget {
   }
 }
 
-void _soon(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(context.read<AppProvider>().s('soon'))),
+/// Qo'ng'iroqcha: yaqin 7 kundagi takroriy to'lovlar.
+void _showUpcoming(BuildContext context, AppProvider provider) {
+  final s = provider.s;
+  final items = provider.upcomingRecurring();
+  final today = DateUtils.dateOnly(DateTime.now());
+
+  String when(DateTime d) {
+    final diff = DateUtils.dateOnly(d).difference(today).inDays;
+    if (diff <= 0) return s('today');
+    if (diff == 1) return s('tomorrow');
+    return s('in_days').replaceAll('{n}', '$diff');
+  }
+
+  showKSheet(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 44,
+                height: 5,
+                decoration: BoxDecoration(
+                    color: KColors.line,
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(s('upcoming_payments'), style: k(17, w: FontWeight.w700)),
+            const SizedBox(height: 8),
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 22),
+                child: Center(
+                  child: Text(s('no_upcoming'),
+                      textAlign: TextAlign.center,
+                      style: k(13.5, c: KColors.mut)),
+                ),
+              )
+            else
+              for (final r in items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: CategoryMeta.color(r.category)
+                              .withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(CategoryMeta.icon(r.category),
+                            size: 19, color: CategoryMeta.color(r.category)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                                r.note.isNotEmpty ? r.note : s.cat(r.category),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: k(14, w: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(when(r.nextDate),
+                                style: k(11.5, c: KColors.mut)),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        Money.format(
+                            r.type == 'income' ? r.amount : -r.amount,
+                            r.currency,
+                            showSign: true),
+                        style: k(14.5,
+                            w: FontWeight.w600,
+                            c: r.type == 'income'
+                                ? KColors.primary
+                                : KColors.ink),
+                      ),
+                    ],
+                  ),
+                ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const RecurringScreen()));
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Center(
+                  child: Text(s('recurring'),
+                      style: k(14, w: FontWeight.w600, c: KColors.primary)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }

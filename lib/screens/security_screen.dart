@@ -14,7 +14,7 @@ class SecurityScreen extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
         return Scaffold(
-          backgroundColor: KColors.bg,
+          backgroundColor: Colors.transparent,
           body: SafeArea(
             bottom: false,
             child: Column(
@@ -143,7 +143,7 @@ class SecurityScreen extends StatelessWidget {
               padding: const EdgeInsets.all(3),
               alignment: value ? Alignment.centerRight : Alignment.centerLeft,
               decoration: BoxDecoration(
-                color: value ? KColors.primary : const Color(0xFFD7DBE3),
+                color: value ? KColors.primary : KColors.mut.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Container(
